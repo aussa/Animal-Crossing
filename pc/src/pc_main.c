@@ -275,6 +275,10 @@ int pc_platform_poll_events(void) {
                     pc_speedhack_toggle();
                     break;
                 }
+                if (event.key.keysym.sym == SDLK_F4 && !event.key.repeat) {
+                    g_pc_fast_forward ^= 1;
+                    printf("[PC] Fast forward %s (2x)\n", g_pc_fast_forward ? "ON" : "OFF");
+                }
                 if (event.key.keysym.sym == SDLK_ESCAPE && !event.key.repeat) {
                     if (g_pc_paused) {
                         pc_pause_menu_handle_event(&event);
