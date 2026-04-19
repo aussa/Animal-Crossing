@@ -13,6 +13,7 @@
 #include "pc_pause_menu.h"
 #include "pc_pad.h"
 #include "m_kankyo.h"
+#include "pc_mouse.h"
 
 /* prefer discrete GPU on laptops */
 #ifdef _WIN32
@@ -343,6 +344,11 @@ int pc_platform_poll_events(void) {
                 /* Pad disconnected or dropped across a sleep/resume. */
                 pc_pad_device_removed(event.cdevice.which);
                 break;
+#ifdef MOUSE_INPUT
+            case SDL_MOUSEWHEEL:
+                g_mouse_wheel_delta += event.wheel.y;
+                break;
+#endif
             case SDL_KEYDOWN:
                 if (event.key.keysym.sym == SDLK_F3 && !event.key.repeat) {
                     pc_speedhack_toggle();
@@ -372,6 +378,9 @@ int pc_platform_poll_events(void) {
                 break;
         }
     }
+
+    pc_mouse_update();
+
     return 1;
 }
 
