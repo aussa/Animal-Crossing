@@ -26,6 +26,7 @@
 #include "zurumode.h"
 #include "pc_save_bswap.h"
 #include "pc_settings.h"
+#include "pc_disc.h"
 #include "m_cockroach.h"
 #include "m_all_grow_ovl.h"
 #include "m_home.h"
@@ -367,8 +368,11 @@ static int pc_save_write_gci_to(const char* gci_path, const char* tmp_path) {
 
     /* CARDDir header */
     memset(&dir_hdr, 0, sizeof(dir_hdr));
-    memcpy(dir_hdr.gameName, "GAFE", 4);
-    memcpy(dir_hdr.company, "01", 2);
+    {
+        const char* gid = pc_disc_get_game_id();
+        memcpy(dir_hdr.gameName, gid[0] ? gid     : "GAFE", 4);
+        memcpy(dir_hdr.company,  gid[0] ? gid + 4 : "01",   2);
+    }
     dir_hdr.bannerFormat = 0;
     strncpy((char*)dir_hdr.fileName, "DobutsunomoriP_MURA", CARD_FILENAME_MAX);
     {

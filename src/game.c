@@ -165,8 +165,20 @@ extern void game_main(GAME* this) {
                 (void*)pc_crash_get_addr(), (void*)pc_crash_get_data_addr());
         } else {
             this->exec(this);
+            /* emu64 clears pc_active_jmpbuf after each display list; re-arm so
+             * mBGM_main and game_move_first are also protected. */
+            pc_crash_set_jmpbuf(&game_exec_jmpbuf);
+            GRAPH_SET_DOING_POINT(graph, GAME_EXEC_FINISHED);
+            GRAPH_SET_DOING_POINT(graph, GAME_BGM);
+            if (!g_pc_model_viewer) {
+                mBGM_main(this);
+            }
+            GRAPH_SET_DOING_POINT(graph, GAME_BGM_FINISHED);
+            game_move_first(this);
         }
         pc_crash_set_jmpbuf(NULL);
+        this->frame_counter++;
+        return;
     }
 #else
     this->exec(this);

@@ -28,9 +28,13 @@ set(CMAKE_CXX_EXTENSIONS ON)
 # =============================================================================
 # Compiler definitions
 # =============================================================================
+# Game version: 0=USA (GAFE01_00), 1=AUS (GAFU01_00), 2=JPN (GAFJ01_00)
+set(AC_VERSION 0 CACHE STRING "Animal Crossing version (0=USA, 1=AUS, 2=JPN)")
+set_property(CACHE AC_VERSION PROPERTY STRINGS 0 1 2)
+
 add_compile_definitions(
     TARGET_PC
-    VERSION=0
+    VERSION=${AC_VERSION}
     F3DEX_GBI_2
     NDEBUG
     BUGFIXES       # Fix original game bugs (buffer overflows, etc.) that crash on modern platforms
@@ -308,6 +312,7 @@ set(PC_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/pc_disc.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/pc_bc7.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/lib/bc7decomp.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/pc_japan_msg.c
 )
 
 # =============================================================================

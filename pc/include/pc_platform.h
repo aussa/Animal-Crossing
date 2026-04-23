@@ -141,6 +141,12 @@ extern int pc_emu64_frame_cull_visible;
 extern int pc_emu64_frame_cull_rejected;
 extern int pc_gx_draw_call_count;
 
+/* --- Japan text overlay --- */
+void pc_japan_msg_init(void);
+int  pc_japan_msg_copy(int idx, u8* dst, u32 dst_max, u32* out_size);
+extern int g_japan_msg_active;
+extern u8  g_japan_font_atlas[];
+
 /* --- Audio --- */
 extern int pc_save_loaded;
 int  pc_audio_get_buffer_fill(void);

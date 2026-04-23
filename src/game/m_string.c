@@ -11,8 +11,17 @@ static u32 String_rom_start;
 static u32 String_table_rom_start;
 
 extern void mString_aram_init() {
+#ifdef TARGET_PC
+    OSReport("[PC] mString_aram_init: STRING_TABLE...\n");
+#endif
     String_table_rom_start = JW_GetAramAddress(RESOURCE_STRING_TABLE);
+#ifdef TARGET_PC
+    OSReport("[PC] mString_aram_init: STRING...\n");
+#endif
     String_rom_start = JW_GetAramAddress(RESOURCE_STRING);
+#ifdef TARGET_PC
+    OSReport("[PC] mString_aram_init: done (table=%u str=%u)\n", (unsigned)String_table_rom_start, (unsigned)String_rom_start);
+#endif
 }
 
 static void mString_Get_StringDataAddressAndSize(int string_no, u32* string_addr, u32* string_size) {

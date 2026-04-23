@@ -18,6 +18,9 @@ static u32 Handbillz_start;
 static void mHandbillz_aram_init();
 
 extern void mHandbill_aram_init() {
+#ifdef TARGET_PC
+    OSReport("[PC] mHandbill_aram_init: PS_TABLE...\n");
+#endif
     Ps_table_rom_start = JW_GetAramAddress(RESOURCE_PS_TABLE);
     Ps_rom_start = JW_GetAramAddress(RESOURCE_PS);
 
@@ -29,7 +32,9 @@ extern void mHandbill_aram_init() {
 
     Handbillz_rom_start = JW_GetAramAddress(RESOURCE_MAILA);
     Handbillz_start = 0;
-
+#ifdef TARGET_PC
+    OSReport("[PC] mHandbill_aram_init: mHandbillz_aram_init...\n");
+#endif
     mHandbillz_aram_init();
 }
 

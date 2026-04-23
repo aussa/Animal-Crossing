@@ -359,7 +359,7 @@ extern Gfx onp_win_mojiT_model[];
 extern Gfx onp_win_zT_model[];
 extern Gfx onp_win_rT_model[];
 extern Gfx onp_win_sT_model[];
-#if VERSION == VER_GAFE01_00
+#if VERSION != VER_GAFU01_00
 extern Gfx onp_win_rmoji_model[];
 #else
 extern Gfx onp_win_rmoji_model_1_data_4A4020[];
@@ -424,7 +424,7 @@ static void mMS_set_dl(Submenu* submenu, mSM_MenuInfo_c* menu_info, GAME* game) 
     gSPDisplayList(POLY_OPA_DISP++, onp_win_zT_model);
     gSPDisplayList(POLY_OPA_DISP++, onp_win_rT_model);
     gSPDisplayList(POLY_OPA_DISP++, onp_win_sT_model);
-#if VERSION == VER_GAFE01_00
+#if VERSION != VER_GAFU01_00
     gSPDisplayList(POLY_OPA_DISP++, onp_win_rmoji_model);
 #else
     gSPDisplayList(POLY_OPA_DISP++, onp_win_rmoji_model_1_data_4A4020);

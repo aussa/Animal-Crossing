@@ -324,52 +324,69 @@ static int mMsg_Count_MsgData(u8* data) {
 
 static int mMsg_LoadMsgData(mMsg_Data_c* msg_data, int index, int cut) {
     if (msg_data != NULL) {
-        u32 addr;
-        u32 size;
-
         mFRm_set_msg_idx(index);
-        mMsg_Get_MsgDataAddressAndSize(index, &addr, &size);
-
-        if (addr != 0 && size != 0) {
-            u32 aligned_addr = ALIGN_PREV(addr, 32);
-            int ofs = addr - aligned_addr;
-            int i;
-            int len;
-            u8* dst_p;
-            u8* src_p;
-
-            /* DMA copy from ARAM */
-            _JW_GetResourceAram(aligned_addr, msg_data->text_buf.data, ALIGN_NEXT(ofs + size, 32));
-
-            /* Move text to beginning of buffer since we copied aligned to 32 bytes */
-            len = size;
-            dst_p = msg_data->text_buf.data;
-            src_p = msg_data->text_buf.data + ofs;
-
-            for (i = 0; i < len; i++) {
-                *dst_p++ = *src_p++;
-            }
 
 #ifdef TARGET_PC
-            /* Truncate Kapp'n's island-arrival msg (12410/12620) at the page
-             * break — page 2 is "Now ye can turn off yer Game Boy Advance...". */
-            if (index == 12410 || index == 12620) {
-                u8* p = msg_data->text_buf.data;
-                int j;
-                for (j = 0; j < (int)size - 1; j++) {
-                    if (p[j] == 0x7F && p[j + 1] == 0x04) {
-                        p[j + 1] = 0x00;
-                        break;
-                    }
-                }
+        /* Try Japan text overlay first (boots USA ISO, reads Japan text separately). */
+        {
+            u32 jp_size = 0;
+            if (pc_japan_msg_copy(index, msg_data->text_buf.data, mMsg_MSG_BUF_SIZE, &jp_size)) {
+                msg_data->msg_no = index;
+                msg_data->data_loaded = TRUE;
+                msg_data->msg_len = mMsg_Count_MsgData(msg_data->text_buf.data);
+                msg_data->cut = cut;
+                return TRUE;
             }
+        }
 #endif
 
-            msg_data->msg_no = index;
-            msg_data->data_loaded = TRUE;
-            msg_data->msg_len = mMsg_Count_MsgData(msg_data->text_buf.data);
-            msg_data->cut = cut;
-            return TRUE;
+        {
+            u32 addr;
+            u32 size;
+
+            mMsg_Get_MsgDataAddressAndSize(index, &addr, &size);
+
+            if (addr != 0 && size != 0) {
+                u32 aligned_addr = ALIGN_PREV(addr, 32);
+                int ofs = addr - aligned_addr;
+                int i;
+                int len;
+                u8* dst_p;
+                u8* src_p;
+
+                /* DMA copy from ARAM */
+                _JW_GetResourceAram(aligned_addr, msg_data->text_buf.data, ALIGN_NEXT(ofs + size, 32));
+
+                /* Move text to beginning of buffer since we copied aligned to 32 bytes */
+                len = size;
+                dst_p = msg_data->text_buf.data;
+                src_p = msg_data->text_buf.data + ofs;
+
+                for (i = 0; i < len; i++) {
+                    *dst_p++ = *src_p++;
+                }
+
+#ifdef TARGET_PC
+                /* Truncate Kapp'n's island-arrival msg (12410/12620) at the page
+                 * break — page 2 is "Now ye can turn off yer Game Boy Advance...". */
+                if (index == 12410 || index == 12620) {
+                    u8* p = msg_data->text_buf.data;
+                    int j;
+                    for (j = 0; j < (int)size - 1; j++) {
+                        if (p[j] == 0x7F && p[j + 1] == 0x04) {
+                            p[j + 1] = 0x00;
+                            break;
+                        }
+                    }
+                }
+#endif
+
+                msg_data->msg_no = index;
+                msg_data->data_loaded = TRUE;
+                msg_data->msg_len = mMsg_Count_MsgData(msg_data->text_buf.data);
+                msg_data->cut = cut;
+                return TRUE;
+            }
         }
     }
 

@@ -12,15 +12,29 @@ typedef struct {
     u8   padding[22];
 } DVDDiskID;
 
-static DVDDiskID disk_id = {
-    {'G', 'A', 'F', 'E'},
-    {'0', '1'},
-    0, 0,
-    0, 0,
-    {0}
-};
+static DVDDiskID disk_id;
+static int disk_id_inited = 0;
 
-DVDDiskID* DVDGetCurrentDiskID(void) { return &disk_id; }
+DVDDiskID* DVDGetCurrentDiskID(void) {
+    if (!disk_id_inited) {
+        disk_id_inited = 1;
+        memset(&disk_id, 0, sizeof(disk_id));
+        if (pc_disc_is_open()) {
+            /* GCM disc header: bytes 0-3 = game name, 4-5 = company, 6 = disk#, 7 = version */
+            u8 hdr[8];
+            if (pc_disc_read(0, hdr, 8)) {
+                memcpy(disk_id.gameName,    hdr + 0, 4);
+                memcpy(disk_id.company,     hdr + 4, 2);
+                disk_id.diskNumber   = hdr[6];
+                disk_id.gameVersion  = hdr[7];
+            }
+        } else {
+            memcpy(disk_id.gameName, "GAFE", 4);
+            memcpy(disk_id.company,  "01",   2);
+        }
+    }
+    return &disk_id;
+}
 
 #define MAX_DVD_ENTRIES 512
 

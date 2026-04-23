@@ -334,17 +334,14 @@ void OSPanic(const char* file, int line, const char* msg, ...) {
 }
 
 void OSReport(const char* fmt, ...) {
-    if (!g_pc_verbose) return;
     va_list args;
     va_start(args, fmt);
-    vprintf(fmt, args);
+    vfprintf(stderr, fmt, args);
     va_end(args);
-    fflush(stdout);
 }
 
 void OSVReport(const char* fmt, va_list list) {
-    if (!g_pc_verbose) return;
-    vprintf(fmt, list);
+    vfprintf(stderr, fmt, list);
 }
 
 void OSReportDisable(void) {}

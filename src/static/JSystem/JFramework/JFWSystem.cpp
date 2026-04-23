@@ -17,6 +17,7 @@
 #include "JSystem/JFramework/JFWSystem.h"
 
 #ifdef TARGET_PC
+#include "types.h"
 #include "pc_bswap.h"
 
 /* Font buffer loaded from DOL at runtime (replaces .s file's .incbin) */
@@ -77,7 +78,11 @@ static void bswap_bfn1(u8* data, u32 total_size) {
 extern "C" {
 extern void pc_load_asset(const char*, void*, unsigned int, unsigned int, int, int);
 void _pc_load_JUTResFONT_Ascfont_fix12(void) {
+#if VERSION == VER_GAFJ01_00
+    pc_load_asset(NULL, (void*)&JUTResFONT_Ascfont_fix12, 0x4160, 0x0D0520, 1 /* SRC_DOL */, 0 /* SWAP_NONE */);
+#else
     pc_load_asset(NULL, (void*)&JUTResFONT_Ascfont_fix12, 0x4160, 0x0A8260, 1 /* SRC_DOL */, 0 /* SWAP_NONE */);
+#endif
     bswap_bfn1((u8*)&JUTResFONT_Ascfont_fix12, 0x4160);
 }
 }
@@ -123,16 +128,25 @@ void JFWSystem::init() {
         firstInit();
 
     sInitCalled = true;
+    OSReport("[PC] JFWSystem::init: JKRAram::create...\n");
     JKRAram::create(CSetUpParam::aramAudioBufSize, CSetUpParam::aramGraphBufSize, CSetUpParam::streamPriority,
                     CSetUpParam::decompPriority, CSetUpParam::aPiecePriority);
 
+    OSReport("[PC] JFWSystem::init: JKRThread...\n");
     mainThread = new JKRThread(OSGetCurrentThread(), 4);
+    OSReport("[PC] JFWSystem::init: JUTVideo::createManager...\n");
     JUTVideo::createManager(CSetUpParam::renderMode);
+    OSReport("[PC] JFWSystem::init: JUTCreateFifo...\n");
     JUTCreateFifo(CSetUpParam::fifoBufSize);
+    OSReport("[PC] JFWSystem::init: JUTGamePad...\n");
     JUTGamePad::init();
+    OSReport("[PC] JFWSystem::init: JUTDirectPrint...\n");
     JUTDirectPrint* directPrint = JUTDirectPrint::start();
+    OSReport("[PC] JFWSystem::init: JUTAssertion...\n");
     JUTAssertion::create();
+    OSReport("[PC] JFWSystem::init: JUTException...\n");
     JUTException::create(directPrint);
+    OSReport("[PC] JFWSystem::init: JUTResFont (systemFont)...\n");
     systemFont = new JUTResFont(CSetUpParam::systemFontRes, nullptr);
     debugPrint = JUTDbPrint::start(nullptr, nullptr);
     debugPrint->changeFont(systemFont);

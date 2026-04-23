@@ -113,6 +113,9 @@ static void trademark_goto_demo_scene(GAME_TRADEMARK* trademark) {
     Save_t* save;
     Private_c* private;
 
+#ifdef TARGET_PC
+    OSReport("[PC] trademark_goto_demo_scene: enter\n");
+#endif
     save = Common_GetPointer(save.save);
     mCPk_InitPak(0);
     n_private = Save_Get(private_data);
@@ -132,10 +135,15 @@ static void trademark_goto_demo_scene(GAME_TRADEMARK* trademark) {
         Common_Set(house_owner_name, RSV_NO);
         Common_Set(last_field_id, -1);
     }
-
+#ifdef TARGET_PC
+    OSReport("[PC] trademark_goto_demo_scene: mEv_ClearEventInfo...\n");
+#endif
     mEv_ClearEventInfo();
 
     demo_no = mEv_CheckTitleDemo();
+#ifdef TARGET_PC
+    OSReport("[PC] trademark_goto_demo_scene: demo_no=%d\n", demo_no);
+#endif
     if (demo_no > mEv_TITLEDEMO_NONE) {
         Door_data_c* demo_door_data = l_demo_door_data_table[demo_no -mEv_TITLEDEMO_START1 ];
 
@@ -176,9 +184,17 @@ static void trademark_goto_demo_scene(GAME_TRADEMARK* trademark) {
 #endif
         Common_Set(transition.wipe_type, WIPE_TYPE_FADE_BLACK);
     }
-
+#ifdef TARGET_PC
+    OSReport("[PC] trademark_goto_demo_scene: Save_Set scene_no...\n");
+#endif
     Save_Set(scene_no, SCENE_TITLE_DEMO);
+#ifdef TARGET_PC
+    OSReport("[PC] trademark_goto_demo_scene: mTM_set_season...\n");
+#endif
     mTM_set_season();
+#ifdef TARGET_PC
+    OSReport("[PC] trademark_goto_demo_scene: GAME_GOTO_NEXT...\n");
+#endif
     Common_Set(submenu_disabled, TRUE);
     GAME_GOTO_NEXT((GAME*)trademark, play, PLAY);
 }
@@ -301,14 +317,24 @@ static void trademark_main(GAME* game) {
     fqrand(); /* increment qrand seed every frame */
     trademark_cancel(trademark);
     trademark_move(trademark);
+#ifdef TARGET_PC
+    static int tm_first = 1;
+    if (tm_first) { OSReport("[PC] trademark_main: first frame, stage=%d\n", trademark->stage); tm_first = 0; }
+#endif
     trademark_draw(trademark);
 
     g = game->graph;
     game_debug_draw_last(game, g);
+#ifdef TARGET_PC
+    if (trademark->stage == 5) OSReport("[PC] trademark_main: game_draw_last...\n");
+#endif
     game_draw_last(g);
 
     if (trademark->stage == 5) {
         trademark->stage = 0;
+#ifdef TARGET_PC
+        OSReport("[PC] trademark_main: trademark_goto_demo_scene...\n");
+#endif
         trademark_goto_demo_scene(trademark);
         mTR_first_flag = FALSE;
     }
@@ -333,15 +359,22 @@ extern void trademark_cleanup(GAME* game) {
 
 extern void trademark_init(GAME* game) {
 #ifdef TARGET_PC
-    OSReport("[PC] trademark_init: enter\n");
+    OSReport("[PC] trademark_init: enter (game=%p)\n", (void*)game);
+    OSReport("[PC] trademark_init: common_data_reinit...\n");
 #endif
     GAME_TRADEMARK* trademark = (GAME_TRADEMARK*)game;
     GRAPH* g = game->graph;
 
     common_data_reinit();
+#ifdef TARGET_PC
+    OSReport("[PC] trademark_init: mFI_SetClimate...\n");
+#endif
     mFI_SetClimate(mFI_CLIMATE_0);
     game->exec = &trademark_main;
     game->cleanup = &trademark_cleanup;
+#ifdef TARGET_PC
+    OSReport("[PC] trademark_init: initView...\n");
+#endif
     initView(&trademark->view, g);
     new_Matrix(game);
     trademark->alpha = 0xFF00;
@@ -366,24 +399,75 @@ extern void trademark_init(GAME* game) {
     }
 
     SetGameFrame(1);
+#ifdef TARGET_PC
+    OSReport("[PC] trademark_init: viBlack/JW_SetLogoMode...\n");
+#endif
     viBlack(FALSE);
     JW_SetLogoMode(1);
+#ifdef TARGET_PC
+    OSReport("[PC] trademark_init: mMsg_aram_init...\n");
+#endif
     mMsg_aram_init();
-
+#ifdef TARGET_PC
+    OSReport("[PC] trademark_init: mMsg_aram_init done\n");
+    OSReport("[PC] trademark_init: clearing NPCs...\n");
+#endif
     Common_Set(player_no, 0);
     Common_Set(player_data_mode, 0);
     Common_Set(scene_from_title_demo, -1);
+#ifdef TARGET_PC
+    OSReport("[PC] trademark_init: mNpc_ClearCacheName...\n");
+#endif
     mNpc_ClearCacheName();
+#ifdef TARGET_PC
+    OSReport("[PC] trademark_init: mNpc_ClearInAnimal...\n");
+#endif
     mNpc_ClearInAnimal();
+#ifdef TARGET_PC
+    OSReport("[PC] trademark_init: mNpc_FirstClearGoodbyMail...\n");
+#endif
     mNpc_FirstClearGoodbyMail();
+#ifdef TARGET_PC
+    OSReport("[PC] trademark_init: mQst_ClearGrabItemInfo...\n");
+#endif
     mQst_ClearGrabItemInfo();
+#ifdef TARGET_PC
+    OSReport("[PC] trademark_init: mNpc_ClearIslandNpcRoomData...\n");
+#endif
     mNpc_ClearIslandNpcRoomData();
+#ifdef TARGET_PC
+    OSReport("[PC] trademark_init: mCD_InitAll...\n");
+#endif
     mCD_InitAll();
+#ifdef TARGET_PC
+    OSReport("[PC] trademark_init: mISL_ClearKeepIsland...\n");
+#endif
     mISL_ClearKeepIsland();
+#ifdef TARGET_PC
+    OSReport("[PC] trademark_init: mBI_ct...\n");
+#endif
     mBI_ct();
+#ifdef TARGET_PC
+    OSReport("[PC] trademark_init: mFont_ct...\n");
+#endif
     mFont_ct();
+#ifdef TARGET_PC
+    OSReport("[PC] trademark_init: mBGMPsComp_scene_mode...\n");
+#endif
     mBGMPsComp_scene_mode(0);
+#ifdef TARGET_PC
+    OSReport("[PC] trademark_init: mVibctl_init0...\n");
+#endif
     mVibctl_init0();
+#ifdef TARGET_PC
+    OSReport("[PC] trademark_init: mFRm_clear_err_info...\n");
+#endif
     mFRm_clear_err_info();
+#ifdef TARGET_PC
+    OSReport("[PC] trademark_init: mEv_SetTitleDemo...\n");
+#endif
     mEv_SetTitleDemo(mTD_demono_get());
+#ifdef TARGET_PC
+    OSReport("[PC] trademark_init: done\n");
+#endif
 }

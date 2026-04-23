@@ -37,10 +37,10 @@
 #define TITLE_WIDTH 64
 #define TITLE_HEIGHT 16
 
-#if VERSION == VER_GAFE01_00
+#if VERSION == VER_GAFU01_00
+#define aAL_IN_FRAMES 101.0f  /* PAL 50Hz */
+#else  /* USA, Japan, and others: 60Hz */
 #define aAL_IN_FRAMES 121.0f
-#elif VERSION == VER_GAFU01_00
-#define aAL_IN_FRAMES 101.0f
 #endif
 
 extern u8 log_win_nintendo1_tex[];
@@ -471,7 +471,7 @@ static void aAL_actor_move(ACTOR* actor, GAME* game) {
   (*logo_actor->action_proc)(logo_actor, game);
 }
 
-#if VERSION == VER_GAFE01_00
+#if VERSION != VER_GAFU01_00  /* USA, Japan, and others */
 static void aAL_copyright_draw(ANIMAL_LOGO_ACTOR* actor, GRAPH* graph) {
   static const u32 draw_pos_x[3] = { 61, 125, 189 };
   static const u32 draw_pos_y[3] = { 198, 198, 198 };
@@ -553,7 +553,7 @@ static void aAL_copyright_draw(ANIMAL_LOGO_ACTOR* actor, GRAPH* graph) {
 
   CLOSE_DISP(graph);
 }
-#elif VERSION == VER_GAFU01_00
+#else  /* VER_GAFU01_00 */
 extern Gfx logo_nin_copyT_model[];
 
 static void aAL_copyright_draw(ANIMAL_LOGO_ACTOR* actor, GRAPH* graph) {

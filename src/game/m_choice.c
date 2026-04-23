@@ -85,8 +85,17 @@ extern void mChoice_Draw(mChoice_c* choice, GAME* game, int mode) {
 }
 
 extern void mChoice_aram_init() {
+#ifdef TARGET_PC
+    OSReport("[PC] mChoice_aram_init: RESOURCE_SELECT_TABLE...\n");
+#endif
     Choice_table_rom_start = JW_GetAramAddress(RESOURCE_SELECT_TABLE);
+#ifdef TARGET_PC
+    OSReport("[PC] mChoice_aram_init: RESOURCE_SELECT...\n");
+#endif
     Choice_rom_start = JW_GetAramAddress(RESOURCE_SELECT);
+#ifdef TARGET_PC
+    OSReport("[PC] mChoice_aram_init: done (table=%u sel=%u)\n", (unsigned)Choice_table_rom_start, (unsigned)Choice_rom_start);
+#endif
 }
 
 extern void mChoice_ct(mChoice_c* choice, GAME* game) {

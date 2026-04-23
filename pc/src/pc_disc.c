@@ -35,6 +35,7 @@ typedef struct {
 /* ---- global state ---- */
 static DiscFile g_disc;
 static int g_disc_open = 0;
+static char g_disc_game_id[7] = {0};
 
 /* DOL info */
 static u32 g_dol_offset = 0;
@@ -285,27 +286,73 @@ static int str_ends_ci(const char* s, const char* suffix) {
     return 1;
 }
 
+/* Preferred 4-byte game ID prefix for the compiled version */
+#if VERSION == VER_GAFJ01_00
+#define PREFERRED_GAME_ID "GAEJ"  /* Japan disc header: GAEJ01 (Doubutsu no Mori e+) */
+#elif VERSION == VER_GAFU01_00
+#define PREFERRED_GAME_ID "GAFU"
+#else
+#define PREFERRED_GAME_ID "GAFE"
+#endif
+
 static int find_disc_image(char* out_path, int out_sz) {
     static const char* dirs[] = { ".", "orig", "rom", NULL };
+    char fallback[512];
+    int fallback_found = 0;
     int d;
+
+    fallback[0] = '\0';
 
     for (d = 0; dirs[d]; d++) {
         DIR* dp = opendir(dirs[d]);
         struct dirent* ent;
         if (!dp) continue;
+
         while ((ent = readdir(dp)) != NULL) {
-            if (str_ends_ci(ent->d_name, ".ciso") ||
-                str_ends_ci(ent->d_name, ".iso")  ||
-                str_ends_ci(ent->d_name, ".gcm")) {
-                if (strcmp(dirs[d], ".") == 0)
-                    snprintf(out_path, out_sz, "%s", ent->d_name);
-                else
-                    snprintf(out_path, out_sz, "%s/%s", dirs[d], ent->d_name);
+            char cand[512];
+            DiscFile df;
+            u8 buf[4];
+            char gameid[5];
+            int ok;
+
+            if (!str_ends_ci(ent->d_name, ".ciso") &&
+                !str_ends_ci(ent->d_name, ".iso")  &&
+                !str_ends_ci(ent->d_name, ".gcm")) continue;
+
+            if (strcmp(dirs[d], ".") == 0)
+                snprintf(cand, sizeof(cand), "%s", ent->d_name);
+            else
+                snprintf(cand, sizeof(cand), "%s/%s", dirs[d], ent->d_name);
+
+            /* Peek at game ID to find the preferred disc */
+            ok = 0;
+            if (disc_open(&df, cand)) {
+                if (disc_read(&df, 0, buf, 4)) {
+                    memcpy(gameid, buf, 4);
+                    gameid[4] = '\0';
+                    ok = 1;
+                }
+                disc_close(&df);
+            }
+            if (!ok) continue;
+
+            if (strncmp(gameid, PREFERRED_GAME_ID, 4) == 0) {
+                snprintf(out_path, out_sz, "%s", cand);
                 closedir(dp);
                 return 1;
             }
+
+            if (!fallback_found) {
+                snprintf(fallback, sizeof(fallback), "%s", cand);
+                fallback_found = 1;
+            }
         }
         closedir(dp);
+    }
+
+    if (fallback_found) {
+        snprintf(out_path, out_sz, "%s", fallback);
+        return 1;
     }
     return 0;
 }
@@ -316,21 +363,26 @@ int pc_disc_init(void) {
     char path[512];
 
     if (g_disc_open) return 1;
-    if (!find_disc_image(path, sizeof(path))) return 0;
-    if (!disc_open(&g_disc, path)) return 0;
+    if (!find_disc_image(path, sizeof(path))) {
+        fprintf(stderr, "[PC] no disc image found (searched ., orig/, rom/)\n");
+        return 0;
+    }
+    if (!disc_open(&g_disc, path)) {
+        fprintf(stderr, "[PC] failed to open disc image: %s\n", path);
+        return 0;
+    }
 
     if (!gcm_verify(&g_disc)) {
-        if (g_pc_verbose) printf("[PC] %s: not a valid GC disc image\n", path);
+        fprintf(stderr, "[PC] %s: not a valid GC disc image\n", path);
         disc_close(&g_disc);
         return 0;
     }
 
     {
-        u8 id[7];
-        disc_read(&g_disc, 0, id, 6);
-        id[6] = '\0';
-        if (g_pc_verbose) printf("[PC] Disc image: %s (%s, %s)\n",
-            path, g_disc.is_ciso ? "CISO" : "ISO/GCM", id);
+        disc_read(&g_disc, 0, g_disc_game_id, 6);
+        g_disc_game_id[6] = '\0';
+        fprintf(stderr, "[PC] disc image: %s (%s, game ID: %s)\n",
+            path, g_disc.is_ciso ? "CISO" : "ISO/GCM", g_disc_game_id);
     }
 
     /* cache DOL info */
@@ -379,8 +431,13 @@ u8* pc_disc_extract_dol(void) {
         free(buf);
         return NULL;
     }
-    if (g_pc_verbose)
-        printf("[PC] DOL: %u bytes (offset 0x%X)\n", g_dol_size, g_dol_offset);
+    fprintf(stderr, "[PC] DOL: %u bytes (offset 0x%X)\n", g_dol_size, g_dol_offset);
+    return buf;
+}
+
+u8* pc_disc_extract_dol_sized(unsigned int* out_size) {
+    u8* buf = pc_disc_extract_dol();
+    if (out_size) *out_size = buf ? g_dol_size : 0;
     return buf;
 }
 
@@ -389,7 +446,7 @@ u8* pc_disc_extract_rel(void) {
     u8* raw;
 
     if (!pc_disc_find_file("foresta.rel.szs", &off, &sz)) {
-        if (g_pc_verbose) printf("[PC] foresta.rel.szs not found in disc FST\n");
+        fprintf(stderr, "[PC] foresta.rel.szs not found in disc FST\n");
         return NULL;
     }
 
@@ -406,16 +463,131 @@ u8* pc_disc_extract_rel(void) {
         u8* dec = yaz0_decode(raw, sz, &dec_sz);
         free(raw);
         if (!dec) {
-            if (g_pc_verbose) printf("[PC] Yaz0 decompression failed\n");
+            fprintf(stderr, "[PC] Yaz0 decompression failed\n");
             return NULL;
         }
-        if (g_pc_verbose)
-            printf("[PC] REL: %u bytes (Yaz0: %u -> %u)\n", dec_sz, sz, dec_sz);
+        fprintf(stderr, "[PC] REL: %u bytes (Yaz0 %u -> %u)\n", dec_sz, sz, dec_sz);
         return dec;
     }
 
-    if (g_pc_verbose) printf("[PC] REL: %u bytes (raw)\n", sz);
+    fprintf(stderr, "[PC] REL: %u bytes (raw)\n", sz);
     return raw;
+}
+
+u8* pc_disc_extract_rel_sized(unsigned int* out_size) {
+    /* We don't have the decompressed size until after the call, so call and
+     * then recover size from the Yaz0 header embedded in the decompressed data,
+     * or use the raw size. Simpler: store it in a local and pass out. */
+    u32 off, sz;
+    if (!pc_disc_find_file("foresta.rel.szs", &off, &sz)) {
+        if (out_size) *out_size = 0;
+        return NULL;
+    }
+    /* Peek at Yaz0 header to get decompressed size */
+    if (out_size) {
+        u8 peek[8];
+        if (disc_read(&g_disc, off, peek, 8) && memcmp(peek, "Yaz0", 4) == 0)
+            *out_size = ((u32)peek[4]<<24)|((u32)peek[5]<<16)|((u32)peek[6]<<8)|peek[7];
+        else
+            *out_size = sz;
+    }
+    return pc_disc_extract_rel();
+}
+
+const char* pc_disc_get_game_id(void) {
+    return g_disc_game_id;
+}
+
+int pc_disc_find_by_gameid(const char* gameid4, char* out_path, int out_sz) {
+    static const char* dirs[] = { ".", "orig", "rom", NULL };
+    int d;
+    for (d = 0; dirs[d]; d++) {
+        DIR* dp = opendir(dirs[d]);
+        struct dirent* ent;
+        if (!dp) continue;
+        while ((ent = readdir(dp)) != NULL) {
+            char cand[512];
+            DiscFile df;
+            u8 buf[4];
+            int ok = 0;
+            if (!str_ends_ci(ent->d_name, ".ciso") &&
+                !str_ends_ci(ent->d_name, ".iso")  &&
+                !str_ends_ci(ent->d_name, ".gcm")) continue;
+            if (strcmp(dirs[d], ".") == 0)
+                snprintf(cand, sizeof(cand), "%s", ent->d_name);
+            else
+                snprintf(cand, sizeof(cand), "%s/%s", dirs[d], ent->d_name);
+            if (disc_open(&df, cand)) {
+                if (disc_read(&df, 0, buf, 4))
+                    ok = (memcmp(buf, gameid4, 4) == 0);
+                disc_close(&df);
+            }
+            if (ok) {
+                snprintf(out_path, out_sz, "%s", cand);
+                closedir(dp);
+                return 1;
+            }
+        }
+        closedir(dp);
+    }
+    return 0;
+}
+
+int pc_disc_load_from_iso(const char* iso_path, const char* filename, u8** out_buf, u32* out_size) {
+    DiscFile df;
+    u8 hdr[0x460];
+    u32 fst_off, fst_sz, num_root, str_base, i;
+    u8* fst = NULL;
+    u8* fbuf = NULL;
+    u32 file_off = 0, file_sz = 0;
+    int found = 0;
+
+    *out_buf = NULL;
+    *out_size = 0;
+
+    if (!disc_open(&df, iso_path)) return 0;
+    if (!disc_read(&df, 0, hdr, sizeof(hdr))) goto fail;
+
+    fst_off  = be32(hdr + 0x424);
+    fst_sz   = be32(hdr + 0x428);
+    fst = (u8*)malloc(fst_sz);
+    if (!fst || !disc_read(&df, fst_off, fst, fst_sz)) goto fail;
+
+    num_root = be32(fst + 8);
+    str_base = num_root * 12;
+
+    for (i = 1; i < num_root; i++) {
+        u8* e = fst + i * 12;
+        if (e[0] != 0) continue; /* skip directories */
+        {
+            u32 name_off = be32(e) & 0xFFFFFF;
+            const char* name = (const char*)(fst + str_base + name_off);
+            if (strcmp(name, filename) == 0) {
+                file_off = be32(e + 4);
+                file_sz  = be32(e + 8);
+                found = 1;
+                break;
+            }
+        }
+    }
+    if (!found) goto fail;
+
+    fbuf = (u8*)malloc(file_sz);
+    if (!fbuf || !disc_read(&df, file_off, fbuf, file_sz)) {
+        free(fbuf); fbuf = NULL;
+        goto fail;
+    }
+
+    free(fst);
+    disc_close(&df);
+    *out_buf = fbuf;
+    *out_size = file_sz;
+    return 1;
+
+fail:
+    free(fst);
+    disc_close(&df);
+    return 0;
 }
 
 void pc_disc_shutdown(void) {
@@ -423,6 +595,7 @@ void pc_disc_shutdown(void) {
         disc_close(&g_disc);
         g_disc_open = 0;
         g_fst_file_count = 0;
+        g_disc_game_id[0] = '\0';
     }
 }
 

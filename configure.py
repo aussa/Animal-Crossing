@@ -35,6 +35,7 @@ DEFAULT_VERSION = 0
 VERSIONS = [
     "GAFE01_00",  # USA Rev 0
     "GAFU01_00",  # Australia Rev 0
+    "GAFJ01_00",  # Japan Rev 0
 ]
 
 parser = argparse.ArgumentParser()

@@ -6,7 +6,7 @@ Scans source files for #include "assets/*.inc" patterns, rewrites them with
 loader + pc/include/pc_assets.h header.
 
 Supports two loading modes:
-  1. ROM-direct: reads from DOL + REL files (orig/GAFE01_00/)
+  1. ROM-direct: reads from DOL + REL files (orig/<VERSION>/)
   2. .bin fallback: reads from extracted .bin files (assets/)
 
 Binary data from GC ROM is big-endian. After loading on LE PC,
@@ -16,11 +16,12 @@ multi-byte fields need byte-swapping:
   - Vtx: swap s16/u16 fields (first 12 bytes of each 16-byte vertex)
 
 Usage:
-    python gen_runtime_assets.py             # full run
-    python gen_runtime_assets.py --scan-only # just report stats
-    python gen_runtime_assets.py --dry-run   # show changes without writing
-    python gen_runtime_assets.py --fix-offsets        # fix ROM offsets in existing source files
-    python gen_runtime_assets.py --fix-offsets --dry-run  # preview offset fixes
+    python gen_runtime_assets.py                         # full run (USA GAFE01_00)
+    python gen_runtime_assets.py --version GAFJ01_00     # Japan version
+    python gen_runtime_assets.py --scan-only             # just report stats
+    python gen_runtime_assets.py --dry-run               # show changes without writing
+    python gen_runtime_assets.py --fix-offsets           # fix ROM offsets in existing source files
+    python gen_runtime_assets.py --fix-offsets --dry-run # preview offset fixes
 """
 
 import re
@@ -32,11 +33,15 @@ from pathlib import Path
 from collections import defaultdict
 
 DECOMP_ROOT = Path(__file__).resolve().parent.parent.parent  # ac-decomp/
-BIN_DIR = DECOMP_ROOT / "build" / "GAFE01_00" / "bin"
-DOL_PATH = DECOMP_ROOT / "orig" / "GAFE01_00" / "sys" / "main.dol"
-REL_PATH = DECOMP_ROOT / "orig" / "GAFE01_00" / "files" / "foresta.rel.szs"
-FORESTA_SYMBOLS = DECOMP_ROOT / "config" / "GAFE01_00" / "foresta" / "symbols.txt"
-DOL_SYMBOLS = DECOMP_ROOT / "config" / "GAFE01_00" / "symbols.txt"
+SUPPORTED_VERSIONS = ["GAFE01_00", "GAFU01_00", "GAFJ01_00"]
+DEFAULT_VERSION = "GAFE01_00"
+
+# These are re-assigned in main() based on --version; defined here for module-level use.
+BIN_DIR = DECOMP_ROOT / "build" / DEFAULT_VERSION / "bin"
+DOL_PATH = DECOMP_ROOT / "orig" / DEFAULT_VERSION / "sys" / "main.dol"
+REL_PATH = DECOMP_ROOT / "orig" / DEFAULT_VERSION / "files" / "foresta.rel.szs"
+FORESTA_SYMBOLS = DECOMP_ROOT / "config" / DEFAULT_VERSION / "foresta" / "symbols.txt"
+DOL_SYMBOLS = DECOMP_ROOT / "config" / DEFAULT_VERSION / "symbols.txt"
 OUTPUT_ASSETS_C = DECOMP_ROOT / "pc" / "src" / "pc_assets.c"
 OUTPUT_ASSETS_H = DECOMP_ROOT / "pc" / "include" / "pc_assets.h"
 RUNTIME_BIN_DIR = DECOMP_ROOT / "pc" / "build32" / "bin" / "assets"
@@ -964,15 +969,33 @@ def generate_pc_assets_c(central_entries, init_func_names, dry_run):
     lines.append('    int i, loaded = 0, failed = 0, rom_mode = 0;')
     lines.append('    int total = (int)(sizeof(s_assets) / sizeof(s_assets[0]));')
     lines.append('')
-    lines.append('    /* Try loading ROM files into memory */')
-    lines.append('    g_rel_data = load_file("orig/GAFE01_00/files/foresta.rel.szs", NULL);')
-    lines.append('    g_dol_data = load_file("orig/GAFE01_00/sys/main.dol", NULL);')
-    lines.append('    if (g_rel_data && g_dol_data) {')
-    lines.append('        rom_mode = 1;')
-    lines.append('        if (g_pc_verbose) printf("[PC] ROM-direct mode: loaded DOL + REL\\n");')
-    lines.append('    } else {')
-    lines.append('        if (g_rel_data) { free(g_rel_data); g_rel_data = NULL; }')
-    lines.append('        if (g_dol_data) { free(g_dol_data); g_dol_data = NULL; }')
+    lines.append('    /* Try disc image — pc_disc_init() already called from main */')
+    lines.append('    if (pc_disc_is_open()) {')
+    lines.append('        g_dol_data = pc_disc_extract_dol();')
+    lines.append('        g_rel_data = pc_disc_extract_rel();')
+    lines.append('        if (g_dol_data && g_rel_data) rom_mode = 1;')
+    lines.append('    }')
+    lines.append('')
+    lines.append('    /* Fall back to pre-extracted DOL + REL files */')
+    lines.append('    if (!rom_mode) {')
+    lines.append('#if VERSION == VER_GAFJ01_00')
+    lines.append('        g_rel_data = load_file("orig/GAFJ01_00/files/foresta.rel.szs", NULL);')
+    lines.append('        g_dol_data = load_file("orig/GAFJ01_00/sys/main.dol", NULL);')
+    lines.append('#elif VERSION == VER_GAFU01_00')
+    lines.append('        g_rel_data = load_file("orig/GAFU01_00/files/foresta.rel.szs", NULL);')
+    lines.append('        g_dol_data = load_file("orig/GAFU01_00/sys/main.dol", NULL);')
+    lines.append('#else')
+    lines.append('        g_rel_data = load_file("orig/GAFE01_00/files/foresta.rel.szs", NULL);')
+    lines.append('        g_dol_data = load_file("orig/GAFE01_00/sys/main.dol", NULL);')
+    lines.append('#endif')
+    lines.append('        if (g_rel_data && g_dol_data) {')
+    lines.append('            rom_mode = 1;')
+    lines.append('            if (g_pc_verbose) printf("[PC] ROM-direct mode: loaded pre-extracted DOL + REL\\n");')
+    lines.append('        } else {')
+    lines.append('            if (g_pc_verbose) printf("[PC] .bin fallback mode\\n");')
+    lines.append('            if (g_rel_data) { free(g_rel_data); g_rel_data = NULL; }')
+    lines.append('            if (g_dol_data) { free(g_dol_data); g_dol_data = NULL; }')
+    lines.append('        }')
     lines.append('    }')
     lines.append('')
     lines.append('    /* No ROM data: nothing to boot from. Let main report it. */')
@@ -1039,17 +1062,31 @@ def generate_pc_assets_h(dry_run):
 
 
 def main():
-    dry_run = '--dry-run' in sys.argv
-    scan_only = '--scan-only' in sys.argv
-    fix_offsets = '--fix-offsets' in sys.argv
+    import argparse as _ap
+    ap = _ap.ArgumentParser(description='Convert .inc assets to runtime-loaded binaries')
+    ap.add_argument('--version', default=DEFAULT_VERSION, choices=SUPPORTED_VERSIONS,
+                    help='Game version to use for DOL/REL/symbol paths (default: GAFE01_00)')
+    ap.add_argument('--dry-run', action='store_true', help='Show changes without writing')
+    ap.add_argument('--scan-only', action='store_true', help='Just report stats')
+    ap.add_argument('--fix-offsets', action='store_true', help='Fix ROM offsets in existing source files')
+    args = ap.parse_args()
+
+    global BIN_DIR, DOL_PATH, REL_PATH, FORESTA_SYMBOLS, DOL_SYMBOLS
+    version_id = args.version
+    BIN_DIR = DECOMP_ROOT / "build" / version_id / "bin"
+    DOL_PATH = DECOMP_ROOT / "orig" / version_id / "sys" / "main.dol"
+    REL_PATH = DECOMP_ROOT / "orig" / version_id / "files" / "foresta.rel.szs"
+    FORESTA_SYMBOLS = DECOMP_ROOT / "config" / version_id / "foresta" / "symbols.txt"
+    DOL_SYMBOLS = DECOMP_ROOT / "config" / version_id / "symbols.txt"
 
     print(f"Decomp root: {DECOMP_ROOT}")
+    print(f"Version: {version_id}")
     print()
 
-    if fix_offsets:
-        fix_existing_offsets(SCAN_DIRS, dry_run=dry_run)
+    if args.fix_offsets:
+        fix_existing_offsets(SCAN_DIRS, dry_run=args.dry_run)
     else:
-        process_all(SCAN_DIRS, dry_run=dry_run, scan_only=scan_only)
+        process_all(SCAN_DIRS, dry_run=args.dry_run, scan_only=args.scan_only)
 
 
 if __name__ == '__main__':

@@ -125,9 +125,10 @@ void pc_platform_init(void) {
      * switch and a multi-second black screen on alt-tab. */
     SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0");
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO | SDL_INIT_TIMER) < 0) {
-        fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
+        fprintf(stderr, "[PC] SDL_Init failed: %s\n", SDL_GetError());
         exit(1);
     }
+    fprintf(stderr, "[PC] SDL_Init OK\n");
 
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
@@ -160,26 +161,31 @@ void pc_platform_init(void) {
         );
     }
     if (!g_pc_window) {
-        fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
+        fprintf(stderr, "[PC] SDL_CreateWindow failed: %s\n", SDL_GetError());
         SDL_Quit();
         exit(1);
     }
+    fprintf(stderr, "[PC] window created (%dx%d fullscreen=%d)\n",
+            g_pc_settings.window_width, g_pc_settings.window_height,
+            g_pc_settings.fullscreen);
 
     g_pc_gl_context = SDL_GL_CreateContext(g_pc_window);
     if (!g_pc_gl_context) {
-        fprintf(stderr, "SDL_GL_CreateContext failed: %s\n", SDL_GetError());
+        fprintf(stderr, "[PC] SDL_GL_CreateContext failed: %s\n", SDL_GetError());
         SDL_DestroyWindow(g_pc_window);
         SDL_Quit();
         exit(1);
     }
+    fprintf(stderr, "[PC] GL context created\n");
 
     if (!gladLoadGL((GLADloadfunc)SDL_GL_GetProcAddress)) {
-        fprintf(stderr, "gladLoadGL failed\n");
+        fprintf(stderr, "[PC] gladLoadGL failed\n");
         SDL_GL_DeleteContext(g_pc_gl_context);
         SDL_DestroyWindow(g_pc_window);
         SDL_Quit();
         exit(1);
     }
+    fprintf(stderr, "[PC] GL %s loaded\n", (const char*)glGetString(GL_VERSION));
 
     /* Apply the saved display mode through the single shared code path (needs a
      * current GL context for the swap interval). */
@@ -226,12 +232,15 @@ void pc_platform_init(void) {
 #endif
 
     pc_gx_init();
+    fprintf(stderr, "[PC] GX init OK\n");
     pc_texture_pack_init();
+    fprintf(stderr, "[PC] texture pack init OK\n");
 #ifdef PC_ENHANCEMENTS
     if (g_pc_settings.preload_textures) {
         pc_texture_pack_preload_all();
     }
 #endif
+    fprintf(stderr, "[PC] platform init complete\n");
 }
 
 extern void PADCleanup(void);
@@ -484,21 +493,33 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    /* Redirect stdout/stderr to NUL unless verbose — unbuffered terminal writes
-     * are extremely slow on Windows and tank FPS. */
-    if (!g_pc_verbose) {
+    /* Always write stderr (errors/fatals) to a log file — the exe has no console
+     * window so crashes would be completely silent otherwise. stdout goes to the
+     * log only in verbose mode; in non-verbose mode it goes to NUL to avoid the
+     * FPS cost of unbuffered terminal writes. The log is truncated each launch. */
+    {
+        FILE* log = freopen("AnimalCrossing.log", "w", stderr);
+        if (log) {
+            setvbuf(stderr, NULL, _IONBF, 0); /* unbuffered: every write hits disk immediately */
+            time_t t = time(NULL);
+            char tbuf[64];
+            strftime(tbuf, sizeof(tbuf), "%Y-%m-%d %H:%M:%S", localtime(&t));
+            fprintf(stderr, "[PC] AnimalCrossing.exe started %s (VERSION=%d)\n", tbuf, VERSION);
+        }
+    }
+    fprintf(stderr, "[PC] init: stdout redirect\n");
+    if (g_pc_verbose) {
+        freopen("AnimalCrossing.log", "a", stdout);
+        setvbuf(stdout, NULL, _IONBF, 0);
+    } else {
 #ifdef _WIN32
         freopen("NUL", "w", stdout);
-        freopen("NUL", "w", stderr);
 #else
         freopen("/dev/null", "w", stdout);
-        freopen("/dev/null", "w", stderr);
 #endif
-    } else {
-        setvbuf(stdout, NULL, _IONBF, 0);
-        setvbuf(stderr, NULL, _IONBF, 0);
     }
 
+    fprintf(stderr, "[PC] init: exe image range\n");
     /* exe image range for seg2k0 — BSS can overlap N64 segment addresses */
 #ifdef _WIN32
     {
@@ -507,6 +528,7 @@ int main(int argc, char* argv[]) {
         IMAGE_NT_HEADERS* nt = (IMAGE_NT_HEADERS*)((char*)exe + dos->e_lfanew);
         pc_image_base = (uintptr_t)exe;
         pc_image_end = pc_image_base + nt->OptionalHeader.SizeOfImage;
+        fprintf(stderr, "[PC] init: image 0x%X - 0x%X\n", pc_image_base, pc_image_end);
     }
 #elif defined(__APPLE__)
     {
@@ -557,11 +579,19 @@ int main(int argc, char* argv[]) {
     }
 #endif
 
+    fprintf(stderr, "[PC] init: SDL_SetMainReady\n");
     SDL_SetMainReady();
+    fprintf(stderr, "[PC] loading settings...\n");
     pc_settings_load();
     pc_keybindings_load();
+    fprintf(stderr, "[PC] platform init (SDL/GL)...\n");
     pc_platform_init();
+    fprintf(stderr, "[PC] disc init...\n");
     pc_disc_init();
+
+    fprintf(stderr, "[PC] Japan text init...\n");
+    pc_japan_msg_init();
+
     if (!pc_assets_init()) {
         const char* msg =
             "No game data found.\n\n"
@@ -572,6 +602,20 @@ int main(int argc, char* argv[]) {
                                  "Animal Crossing - Missing ROM", msg, g_pc_window);
         pc_platform_shutdown();
         return 1;
+    }
+
+    pc_crash_protection_init();
+
+    {
+        static jmp_buf pc_early_crash_jmpbuf;
+        pc_crash_set_jmpbuf(&pc_early_crash_jmpbuf);
+        if (setjmp(pc_early_crash_jmpbuf) != 0) {
+            fprintf(stderr, "[PC] CRASH caught: addr=0x%08X data=0x%08X\n",
+                    pc_crash_get_addr(), pc_crash_get_data_addr());
+            pc_disc_shutdown();
+            pc_platform_shutdown();
+            return 1;
+        }
     }
 
     ac_entry();                         /* sets HotStartEntry = &entry */

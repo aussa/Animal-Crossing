@@ -22,6 +22,21 @@ int pc_disc_read(u32 offset, void* dest, u32 size);
 /* Extract DOL and REL as malloc'd buffers (for pc_assets.c). */
 u8* pc_disc_extract_dol(void);
 u8* pc_disc_extract_rel(void); /* handles Yaz0 decompression */
+/* Sized variants — also write the buffer's byte count to *out_size. */
+u8* pc_disc_extract_dol_sized(unsigned int* out_size);
+u8* pc_disc_extract_rel_sized(unsigned int* out_size);
+
+/* Returns the null-terminated 6-byte game ID from the disc header (e.g. "GAFE01"),
+ * or an empty string if no disc is open. */
+const char* pc_disc_get_game_id(void);
+
+/* Scan standard disc dirs for an ISO/GCM whose first 4 bytes match gameid4.
+ * Writes path to out_path (max out_sz chars). Returns 1 on success. */
+int pc_disc_find_by_gameid(const char* gameid4, char* out_path, int out_sz);
+
+/* Open iso_path, find filename (basename match) in its GCM FST, and read
+ * it into a malloc'd buffer. Caller must free(*out_buf). Returns 1 on success. */
+int pc_disc_load_from_iso(const char* iso_path, const char* filename, u8** out_buf, u32* out_size);
 
 /* Close disc image and free resources. */
 void pc_disc_shutdown(void);

@@ -643,7 +643,7 @@ static void mDI_diary_ovl_move(Submenu* submenu) {
     (*ovl_move_proc[menu_info->proc_status])(submenu, menu_info);
 }
 
-#if VERSION == VER_GAFE01_00
+#if VERSION != VER_GAFU01_00
 extern Gfx dia_init_mode[];
 // extern Gfx kei_win_b2_model[];
 extern Gfx kei_win_b2_model_1_data_4075A0[];

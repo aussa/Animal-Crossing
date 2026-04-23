@@ -2,7 +2,22 @@ static u8* mFont_Get_FontTex_p() {
   return FONT_nes_tex_font1;
 }
 
+#ifdef TARGET_PC
+/* Japan overlay globals defined in pc_japan_msg.c */
+extern int g_japan_msg_active;
+extern u8  g_japan_font_atlas[];
+#define JPN_GLYPH_LEAD 0xFE
+#define JPN_ATLAS_COLS 64
+#define JPN_ATLAS_ROWS 38
+#define JPN_ATLAS_W    (JPN_ATLAS_COLS * mFont_TEX_CHAR_WIDTH)
+#define JPN_ATLAS_H    (JPN_ATLAS_ROWS * mFont_TEX_CHAR_HEIGHT)
+#endif
+
 extern int mFont_GetCodeWidth(u8 c, int cut) {
+#ifdef TARGET_PC
+  if (g_japan_msg_active && c == JPN_GLYPH_LEAD)
+    return mFont_TEX_CHAR_WIDTH; /* all Japan glyphs are full-width, no bearing */
+#endif
   return mFont_TEX_CHAR_WIDTH - (cut ? mFont_Get_FontOffset(c) : 0);
 }
 
@@ -170,6 +185,11 @@ extern int mFont_CodeSize_get(u8* str) {
   int c0 = *str;
   int c1;
 
+#ifdef TARGET_PC
+  if (g_japan_msg_active && c0 == JPN_GLYPH_LEAD)
+    return 3; /* 0xFE hi lo */
+#endif
+
   if (c0 == CHAR_CONTROL_CODE) {
     c1 = *(str + 1);
     if (c1 >= 0 && c1 < mFont_CONT_CODE_NUM) {
@@ -321,28 +341,38 @@ extern void mFont_SetCombineMode(GRAPH* graph, int revert_flag, int mode) {
   CLOSE_DISP(graph);
 }
 
-static void mFont_gppLoadTexture(Gfx** gpp, int c, int* uls, int* ult, int* lrs, int* lrt) {
+static void mFont_gppLoadTexture(Gfx** gpp, const u8* char_p, int* uls, int* ult, int* lrs, int* lrt) {
   Gfx* g = *gpp;
-  u8* font_tex = mFont_Get_FontTex_p();
-  int t = c >> 4;
-  int n_ult = t << 4;
-  int n_uls = (c - n_ult) * mFont_TEX_CHAR_WIDTH;
-  int n_lrs = n_uls + (mFont_TEX_CHAR_WIDTH - 1);
-  int n_lrt = n_ult + (mFont_TEX_CHAR_HEIGHT - 1);
+  int n_uls, n_ult, n_lrs, n_lrt;
 
-  gDPLoadTextureTile_4b_Dolphin(
-    g++,
-    font_tex,
-    G_IM_FMT_I,
-    mFont_TEX_CHAR_WIDTH * 16, mFont_TEX_CHAR_HEIGHT * 16
-  );
+#ifdef TARGET_PC
+  if (g_japan_msg_active && char_p[0] == JPN_GLYPH_LEAD) {
+    int slot = ((int)char_p[1] << 8) | char_p[2];
+    n_uls = (slot % JPN_ATLAS_COLS) * mFont_TEX_CHAR_WIDTH;
+    n_ult = (slot / JPN_ATLAS_COLS) * mFont_TEX_CHAR_HEIGHT;
+    n_lrs = n_uls + (mFont_TEX_CHAR_WIDTH - 1);
+    n_lrt = n_ult + (mFont_TEX_CHAR_HEIGHT - 1);
+    gDPLoadTextureTile_4b_Dolphin(g++, g_japan_font_atlas, G_IM_FMT_I,
+                                  JPN_ATLAS_W, JPN_ATLAS_H);
+    *gpp = g;
+    *uls = n_uls; *ult = n_ult; *lrs = n_lrs; *lrt = n_lrt;
+    return;
+  }
+#endif
 
-
-  *gpp = g;
-  *uls = n_uls;
-  *ult = n_ult;
-  *lrs = n_lrs;
-  *lrt = n_lrt;
+  {
+    u8* font_tex = mFont_Get_FontTex_p();
+    int c = char_p[0];
+    int t = c >> 4;
+    n_ult = t << 4;
+    n_uls = (c - n_ult) * mFont_TEX_CHAR_WIDTH;
+    n_lrs = n_uls + (mFont_TEX_CHAR_WIDTH - 1);
+    n_lrt = n_ult + (mFont_TEX_CHAR_HEIGHT - 1);
+    gDPLoadTextureTile_4b_Dolphin(g++, font_tex, G_IM_FMT_I,
+                                  mFont_TEX_CHAR_WIDTH * 16, mFont_TEX_CHAR_HEIGHT * 16);
+    *gpp = g;
+    *uls = n_uls; *ult = n_ult; *lrs = n_lrs; *lrt = n_lrt;
+  }
 }
 
 static void mFont_SetVertex_dol(Vtx* vtx, int x, int y, int s, int t) {
@@ -655,7 +685,7 @@ extern void mFont_Main_start(GRAPH* graph) {
 static void mFont_gppDrawCharRect(
   GRAPH* graph,
   Gfx** gfx_pp,
-  int c,
+  const u8* char_p,
   u32 ulx, u32 uly,
   u32 lrx, u32 lry,
   int dsdx, int dtdy
@@ -666,7 +696,7 @@ static void mFont_gppDrawCharRect(
   int lrs;
   int lrt;
 
-  mFont_gppLoadTexture(&g, c, &uls, &ult, &lrs, &lrt);
+  mFont_gppLoadTexture(&g, char_p, &uls, &ult, &lrs, &lrt);
 
   // Convert to signed 10.5 format
   uls <<= 5;
@@ -679,7 +709,7 @@ static void mFont_gppDrawCharRect(
 static void mFont_gppDrawCharPoly(
   GRAPH* graph,
   Gfx** gfx_pp,
-  int c,
+  const u8* char_p,
   xy_t* pos_tl, xy_t* pos_br,
   int s, int t
 ) {
@@ -691,7 +721,7 @@ static void mFont_gppDrawCharPoly(
   f32 inv_half_s, inv_half_t;
   f32 t0, t1;
 
-  mFont_gppLoadTexture(&g, c, &uls, &ult, &lrs, &lrt);
+  mFont_gppLoadTexture(&g, char_p, &uls, &ult, &lrs, &lrt);
     
   vert_tl.x = pos_tl->x - ((f32)SCREEN_WIDTH * 0.5f);
   vert_tl.y = -(pos_tl->y - ((f32)SCREEN_HEIGHT * 0.5f));
@@ -846,14 +876,13 @@ static void mFontChar_gppDrawRect(mFontChar* this, GRAPH* graph, Gfx** gfx_pp) {
   dtdy = (1024.0f * this->inv_scaled_size.y); /* 1 << 10 for correct s5.10 format? */
  
   this->width = width;
- 
   /* Skip rendering if the rect is fully offscreen (negative coordinates
      would wrap when stored in unsigned GBI bitfields, causing artifacts) */
   if (lrx_i <= 0 || lry_i <= 0) return;
   if (ulx_i < 0) ulx_i = 0;
   if (uly_i < 0) uly_i = 0;
  
-  mFont_gppDrawCharRect(graph, gfx_pp, c, (u32)ulx_i, (u32)uly_i, (u32)lrx_i, (u32)lry_i, dsdx, dtdy);
+  mFont_gppDrawCharRect(graph, gfx_pp, this->char_p, (u32)ulx_i, (u32)uly_i, (u32)lrx_i, (u32)lry_i, dsdx, dtdy);
 }
 
 static void mFontChar_gppDrawPoly(mFontChar* this, GRAPH* graph, Gfx** gfx_pp) {
@@ -887,7 +916,7 @@ static void mFontChar_gppDrawPoly(mFontChar* this, GRAPH* graph, Gfx** gfx_pp) {
     this->width = width;
   }
 
-  mFont_gppDrawCharPoly(graph, gfx_pp, *this->char_p, &top_left, &bottom_right, s, mFont_TEX_CHAR_HEIGHT);
+  mFont_gppDrawCharPoly(graph, gfx_pp, this->char_p, &top_left, &bottom_right, s, mFont_TEX_CHAR_HEIGHT);
 }
 
 static void mFontChar_gppDraw(mFontChar* this, GRAPH* graph, Gfx** gfx_pp) {

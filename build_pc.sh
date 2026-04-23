@@ -28,7 +28,7 @@ cd "$BUILD_DIR"
 
 if [ ! -f Makefile ]; then
     echo "=== Configuring CMake ==="
-    cmake .. -G "MinGW Makefiles"
+    cmake .. -G -DCMAKE_BUILD_TYPE=Debug "MinGW Makefiles"
 fi
 
 # --- Build ---
