@@ -222,11 +222,12 @@ extern s32 RspStart(Acmd* pTaskCmds, s32 allTasks) {
                 break;
             }
 
-            case A_CMD_CLEARBUFF: // A_CLEARBUFF
+            case A_CMD_CLEARBUFF: {// A_CLEARBUFF
                 u16 addr = cmdHi & 0xFFFF;
                 u16 size = cmd->words.w1 & 0xFFFF;
                 Jac_bzero(&DMEM[addr], size);
                 break;
+            }
 
             case A_CMD_RESAMPLE: { // A_RESAMPLE
                 s16 spC[8];
