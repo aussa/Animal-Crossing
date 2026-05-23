@@ -863,7 +863,6 @@ int mCD_SaveHome_bg(int param_1, int* chan) {
     int slot = mCD_GetThisLandSlotNo();
     int result;
 
-
     pc_save_pre_write_side_effects();
 
     if (slot == mCD_SLOT_B && l_card_b_gci_path[0] != '\0') {
