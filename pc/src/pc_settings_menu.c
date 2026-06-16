@@ -22,6 +22,7 @@ enum {
     ITEM_RESETTI,
     ITEM_NES_ASPECT,
     ITEM_MASTER_VOLUME,
+    ITEM_DEADZONE,
 };
 
 /* Per-item static metadata. restart=1 appends " *" and folds into the
@@ -50,6 +51,10 @@ static const Item tab_audio_items[] = {
     { "Master volume", ITEM_MASTER_VOLUME, 0 },
 };
 
+static const Item tab_controller_items[] = {
+    { "Stick deadzone", ITEM_DEADZONE, 0 },
+};
+
 typedef struct {
     const char* name;
     const Item* items;
@@ -58,9 +63,10 @@ typedef struct {
 
 #define TAB_ITEMS(a) (a), (int)(sizeof(a) / sizeof((a)[0]))
 static const Tab s_tabs[] = {
-    { "Video",    TAB_ITEMS(tab_video_items) },
-    { "Audio",    TAB_ITEMS(tab_audio_items) },
-    { "Gameplay", TAB_ITEMS(tab_gameplay_items) },
+    { "Video",      TAB_ITEMS(tab_video_items) },
+    { "Audio",      TAB_ITEMS(tab_audio_items) },
+    { "Gameplay",   TAB_ITEMS(tab_gameplay_items) },
+    { "Controller", TAB_ITEMS(tab_controller_items) },
 };
 #define TAB_COUNT ((int)(sizeof(s_tabs) / sizeof(s_tabs[0])))
 
@@ -109,7 +115,8 @@ static void recompute_dirty(void) {
         (s_pending.preload_textures != g_pc_settings.preload_textures) ||
         (s_pending.disable_resetti  != g_pc_settings.disable_resetti) ||
         (s_pending.nes_aspect       != g_pc_settings.nes_aspect) ||
-        (s_pending.master_volume    != g_pc_settings.master_volume);
+        (s_pending.master_volume    != g_pc_settings.master_volume) ||
+        (s_pending.controller_deadzone != g_pc_settings.controller_deadzone);
 }
 
 static void snapshot(void) {
@@ -165,6 +172,12 @@ static void item_cycle(int id, int dir) {
             if (v > 100) v = 100;
             s_pending.master_volume = v;
         } break;
+        case ITEM_DEADZONE: {
+            int v = s_pending.controller_deadzone + (dir > 0 ? 5 : -5);
+            if (v < 0)               v = 0;
+            if (v > PC_DEADZONE_MAX)  v = PC_DEADZONE_MAX;
+            s_pending.controller_deadzone = v;
+        } break;
     }
     recompute_dirty();
 }
@@ -207,6 +220,12 @@ static void item_format(int id, char* buf, size_t n) {
         case ITEM_MASTER_VOLUME:
             snprintf(buf, n, "< %d%% >", s_pending.master_volume);
             break;
+        case ITEM_DEADZONE:
+            if (s_pending.controller_deadzone == 0)
+                snprintf(buf, n, "< Off >");
+            else
+                snprintf(buf, n, "< %d%% >", s_pending.controller_deadzone);
+            break;
         default:
             buf[0] = '\0';
             break;
@@ -225,6 +244,7 @@ static int item_changed(int id) {
         case ITEM_RESETTI:    return s_pending.disable_resetti  != g_pc_settings.disable_resetti;
         case ITEM_NES_ASPECT:    return s_pending.nes_aspect    != g_pc_settings.nes_aspect;
         case ITEM_MASTER_VOLUME: return s_pending.master_volume != g_pc_settings.master_volume;
+        case ITEM_DEADZONE:      return s_pending.controller_deadzone != g_pc_settings.controller_deadzone;
     }
     return 0;
 }

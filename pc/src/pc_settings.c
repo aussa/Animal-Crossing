@@ -13,6 +13,7 @@ PCSettings g_pc_settings = {
     .disable_resetti = 0,
     .nes_aspect = 1,
     .master_volume = 100,
+    .controller_deadzone = 15,
 };
 
 static const char* SETTINGS_FILE = "settings.ini";
@@ -48,7 +49,11 @@ static const char* DEFAULT_SETTINGS =
     "\n"
     "[Audio]\n"
     "# Master output volume as a percentage (0-100)\n"
-    "master_volume = 100\n";
+    "master_volume = 100\n"
+    "\n"
+    "[Controller]\n"
+    "# Analog stick deadzone as a percent of full range (0-40). Bigger ignores more drift.\n"
+    "controller_deadzone = 15\n";
 
 static const char* skip_ws(const char* s) {
     while (*s == ' ' || *s == '\t') s++;
@@ -89,6 +94,8 @@ static void apply_setting(const char* key, const char* value) {
         if (val == 0 || val == 1) g_pc_settings.nes_aspect = val;
     } else if (strcmp(key, "master_volume") == 0) {
         if (val >= 0 && val <= 100) g_pc_settings.master_volume = val;
+    } else if (strcmp(key, "controller_deadzone") == 0) {
+        if (val >= 0 && val <= PC_DEADZONE_MAX) g_pc_settings.controller_deadzone = val;
     }
 }
 
@@ -150,6 +157,10 @@ void pc_settings_save(void) {
     fprintf(f, "[Audio]\n");
     fprintf(f, "# Master output volume as a percentage (0-100)\n");
     fprintf(f, "master_volume = %d\n", g_pc_settings.master_volume);
+    fprintf(f, "\n");
+    fprintf(f, "[Controller]\n");
+    fprintf(f, "# Analog stick deadzone as a percent of full range (0-40). Bigger ignores more drift.\n");
+    fprintf(f, "controller_deadzone = %d\n", g_pc_settings.controller_deadzone);
     fclose(f);
     printf("[Settings] Saved %s\n", SETTINGS_FILE);
 }

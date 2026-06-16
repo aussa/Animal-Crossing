@@ -2,15 +2,72 @@
 #include "pc_platform.h"
 #include "pc_typing.h"
 #include "pc_keybindings.h"
+#include "pc_settings.h"
 #include <dolphin/pad.h>
+#include <math.h>
 
 /* analog stick constants */
 #define STICK_MAGNITUDE     80
-#define AXIS_DEADZONE       4000
 #define TRIGGER_THRESHOLD   100
 #define RUMBLE_DURATION_MS  200
 
+/* Radial-deadzone calibration (see src/static/dolphin/pad/Padclamp.c):
+ * the game's own PADClamp applies an inner deadzone of 15 and expects full
+ * deflection around 80 (the keyboard path uses STICK_MAGNITUDE = 80). The old
+ * gamepad path mapped to +/-127, overshooting so the stick saturated at ~60%
+ * travel. We map the live region onto [FLOOR .. RIM] instead. FLOOR = 16 sits
+ * just above PADClamp's min (15) so crossing our deadzone yields motion of 1
+ * post-clamp - a smooth onset without stacking a second dead band. */
+#define PAD_STICK_FLOOR     16
+#define PAD_STICK_RIM       80
+#define PAD_STICK_OUTER     0.95f   /* saturation: reach max before the physical rim */
+#define SDL_AXIS_MAX        32767.0f
+
 static SDL_GameController* g_controller = NULL;
+
+/* Radial deadzone: maps a raw SDL stick (x,y in [-32768,32767]) to GC stick
+ * units, preserving direction. Returns TRUE and writes *ox,*oy only when the
+ * stick is OUTSIDE the deadzone; returns FALSE (leaving *ox,*oy untouched)
+ * when inside, so a keyboard-driven stick value is preserved. dz_inner is the
+ * deadzone fraction [0..1]. Y is inverted to match the GC's Y-up convention. */
+static BOOL apply_radial_deadzone(s16 x, s16 y, f32 dz_inner, s8* ox, s8* oy) {
+    /* Cheap inscribed-box early-out: when both axes are within the box that
+     * fits entirely inside the deadzone circle, the point is guaranteed inside
+     * -> no motion, skip the sqrtf. 0.70710678 (1/sqrt2) keeps the box
+     * inscribed so its corners never poke outside the circle. */
+    f32 box = dz_inner * SDL_AXIS_MAX * 0.70710678f;
+    if ((f32)abs(x) <= box && (f32)abs(y) <= box) {
+        return FALSE;
+    }
+
+    f32 fx = (f32)x * (1.0f / SDL_AXIS_MAX);
+    f32 fy = (f32)y * (1.0f / SDL_AXIS_MAX);
+    f32 mag = sqrtf(fx * fx + fy * fy);
+
+    /* Guard the divide below: dead-centre (mag==0) or a deadzone of 0. */
+    if (mag <= dz_inner || mag < 1e-6f) {
+        return FALSE;
+    }
+
+    /* Rescale the live region [dz_inner .. OUTER] onto [0 .. 1]. */
+    f32 range = PAD_STICK_OUTER - dz_inner;
+    if (range < 1e-6f) range = 1e-6f;   /* defensive: never divide by ~0 */
+    f32 t = (mag - dz_inner) / range;
+    if (t > 1.0f) t = 1.0f;
+
+    /* Map onto GC units with floor compensation for PADClamp's min. */
+    f32 out = (f32)PAD_STICK_FLOOR + t * (f32)(PAD_STICK_RIM - PAD_STICK_FLOOR);
+
+    /* Direction via the unit vector; clamp as float-rounding insurance. */
+    f32 gx = (fx / mag) * out;
+    f32 gy = (fy / mag) * out;
+    if (gx > 127.0f) gx = 127.0f; else if (gx < -128.0f) gx = -128.0f;
+    if (gy > 127.0f) gy = 127.0f; else if (gy < -128.0f) gy = -128.0f;
+
+    *ox = (s8)gx;
+    *oy = (s8)(-gy);   /* GC stick is Y-up; SDL is Y-down */
+    return TRUE;
+}
 
 BOOL PADInit(void) {
     for (int i = 0; i < SDL_NumJoysticks(); i++) {
@@ -103,31 +160,17 @@ u32 PADRead(PADStatus* status) {
         if (SDL_GameControllerGetButton(g_controller, SDL_CONTROLLER_BUTTON_DPAD_LEFT))  buttons |= PAD_BUTTON_LEFT;
         if (SDL_GameControllerGetButton(g_controller, SDL_CONTROLLER_BUTTON_DPAD_RIGHT)) buttons |= PAD_BUTTON_RIGHT;
 
+        /* Percent -> fraction once per read; shared by both sticks so a live
+         * settings-menu change applies next frame with no restart. */
+        f32 dz = (f32)g_pc_settings.controller_deadzone * 0.01f;
+
         s16 lx = SDL_GameControllerGetAxis(g_controller, SDL_CONTROLLER_AXIS_LEFTX);
         s16 ly = SDL_GameControllerGetAxis(g_controller, SDL_CONTROLLER_AXIS_LEFTY);
-        if (abs(lx) > AXIS_DEADZONE) {
-            int sx = lx >> 8;
-            if (sx > 127) sx = 127; else if (sx < -128) sx = -128;
-            stickX = (s8)sx;
-        }
-        if (abs(ly) > AXIS_DEADZONE) {
-            int sy = -(ly >> 8);
-            if (sy > 127) sy = 127; else if (sy < -128) sy = -128;
-            stickY = (s8)sy;
-        }
+        apply_radial_deadzone(lx, ly, dz, &stickX, &stickY);
 
         s16 rx = SDL_GameControllerGetAxis(g_controller, SDL_CONTROLLER_AXIS_RIGHTX);
         s16 ry = SDL_GameControllerGetAxis(g_controller, SDL_CONTROLLER_AXIS_RIGHTY);
-        if (abs(rx) > AXIS_DEADZONE) {
-            int srx = rx >> 8;
-            if (srx > 127) srx = 127; else if (srx < -128) srx = -128;
-            cstickX = (s8)srx;
-        }
-        if (abs(ry) > AXIS_DEADZONE) {
-            int sry = -(ry >> 8);
-            if (sry > 127) sry = 127; else if (sry < -128) sry = -128;
-            cstickY = (s8)sry;
-        }
+        apply_radial_deadzone(rx, ry, dz, &cstickX, &cstickY);
 
         u8 lt = (u8)(SDL_GameControllerGetAxis(g_controller, SDL_CONTROLLER_AXIS_TRIGGERLEFT) >> 7);
         u8 rt = (u8)(SDL_GameControllerGetAxis(g_controller, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) >> 7);
