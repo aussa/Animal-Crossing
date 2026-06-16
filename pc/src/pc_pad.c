@@ -24,6 +24,38 @@
 #define SDL_AXIS_MAX        32767.0f
 
 static SDL_GameController* g_controller = NULL;
+/* Instance id of the open controller, used to match SDL_CONTROLLERDEVICEREMOVED
+ * events (whose `which` is an instance id, not a device index). -1 = none. */
+static SDL_JoystickID g_controller_id = -1;
+
+/* Open the game controller at joystick device index `idx`, unless we already
+ * hold one (the first pad wins; extras are ignored). Records its instance id
+ * so a later REMOVED event can be matched to it. */
+static void pad_open(int idx) {
+    if (g_controller) return;
+    if (!SDL_IsGameController(idx)) return;
+    SDL_GameController* c = SDL_GameControllerOpen(idx);
+    if (!c) return;
+    g_controller = c;
+    SDL_Joystick* js = SDL_GameControllerGetJoystick(c);
+    g_controller_id = js ? SDL_JoystickInstanceID(js) : -1;
+}
+
+/* Scan every joystick and open the first game controller found. */
+static void pad_open_first(void) {
+    int n = SDL_NumJoysticks();
+    for (int i = 0; i < n && !g_controller; i++) {
+        pad_open(i);
+    }
+}
+
+static void pad_close(void) {
+    if (g_controller) {
+        SDL_GameControllerClose(g_controller);
+        g_controller = NULL;
+    }
+    g_controller_id = -1;
+}
 
 /* Radial deadzone: maps a raw SDL stick (x,y in [-32768,32767]) to GC stick
  * units, preserving direction. Returns TRUE and writes *ox,*oy only when the
@@ -75,15 +107,27 @@ static BOOL apply_radial_deadzone(s16 x, s16 y, f32 dz_inner, f32 curve, s8* ox,
 }
 
 BOOL PADInit(void) {
-    for (int i = 0; i < SDL_NumJoysticks(); i++) {
-        if (SDL_IsGameController(i)) {
-            g_controller = SDL_GameControllerOpen(i);
-            if (g_controller) {
-                break;
-            }
-        }
-    }
+    /* Make sure SDL delivers controller hotplug events to our poll loop so
+     * pads that (re)appear after a system sleep/resume get picked up. */
+    SDL_GameControllerEventState(SDL_ENABLE);
+    pad_open_first();
     return TRUE;
+}
+
+/* SDL_CONTROLLERDEVICEADDED hook (event.cdevice.which is a device index).
+ * Fires when a pad is plugged in or re-enumerates after a sleep/resume. */
+void pc_pad_device_added(int device_index) {
+    pad_open(device_index);
+}
+
+/* SDL_CONTROLLERDEVICEREMOVED hook (event.cdevice.which is an instance id).
+ * If our active pad went away, drop it and try to fall back to any other
+ * controller still connected (e.g. dock vs handheld). */
+void pc_pad_device_removed(int instance_id) {
+    if (g_controller && instance_id == g_controller_id) {
+        pad_close();
+        pad_open_first();
+    }
 }
 
 u32 PADRead(PADStatus* status) {
@@ -135,21 +179,15 @@ u32 PADRead(PADStatus* status) {
         #undef INPUT_PRESSED
     }
 
-    /* hotplug */
-    if (!g_controller) {
-        for (int i = 0; i < SDL_NumJoysticks(); i++) {
-            if (SDL_IsGameController(i)) {
-                g_controller = SDL_GameControllerOpen(i);
-                if (g_controller) break;
-            }
-        }
+    /* Hotplug safety net. The SDL event loop drives (re)connection via
+     * pc_pad_device_added/removed, but we re-check here every frame so a
+     * dropped pad is recovered even if an ADDED event was missed on some
+     * resume paths: detach a stale handle, then (re)acquire whatever's there. */
+    if (g_controller && !SDL_GameControllerGetAttached(g_controller)) {
+        pad_close();
     }
-
-    if (g_controller) {
-        if (!SDL_GameControllerGetAttached(g_controller)) {
-            SDL_GameControllerClose(g_controller);
-            g_controller = NULL;
-        }
+    if (!g_controller) {
+        pad_open_first();
     }
     if (g_controller) {
         if (SDL_GameControllerGetButton(g_controller, SDL_CONTROLLER_BUTTON_A)) buttons |= PAD_BUTTON_A;
@@ -209,10 +247,7 @@ void PADControlAllMotors(const u32* commands) {
 }
 
 void PADCleanup(void) {
-    if (g_controller) {
-        SDL_GameControllerClose(g_controller);
-        g_controller = NULL;
-    }
+    pad_close();
 }
 
 BOOL PADReset(u32 mask) { (void)mask; return TRUE; }

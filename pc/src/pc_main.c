@@ -11,6 +11,7 @@
 #include "pc_disc.h"
 #include "pc_typing.h"
 #include "pc_pause_menu.h"
+#include "pc_pad.h"
 #include "m_kankyo.h"
 
 /* prefer discrete GPU on laptops */
@@ -299,6 +300,14 @@ int pc_platform_poll_events(void) {
                 if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
                     pc_platform_update_window_size();
                 }
+                break;
+            case SDL_CONTROLLERDEVICEADDED:
+                /* Pad connected or re-enumerated after a sleep/resume. */
+                pc_pad_device_added(event.cdevice.which);
+                break;
+            case SDL_CONTROLLERDEVICEREMOVED:
+                /* Pad disconnected or dropped across a sleep/resume. */
+                pc_pad_device_removed(event.cdevice.which);
                 break;
             case SDL_KEYDOWN:
                 if (event.key.keysym.sym == SDLK_F3 && !event.key.repeat) {
