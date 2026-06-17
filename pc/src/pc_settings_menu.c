@@ -23,6 +23,8 @@ enum {
     ITEM_NES_ASPECT,
     ITEM_MASTER_VOLUME,
     ITEM_DEADZONE,
+    ITEM_DEADZONE_CSTICK,
+    ITEM_RESPONSE_CURVE,
 };
 
 /* Per-item static metadata. restart=1 appends " *" and folds into the
@@ -52,7 +54,9 @@ static const Item tab_audio_items[] = {
 };
 
 static const Item tab_controller_items[] = {
-    { "Stick deadzone", ITEM_DEADZONE, 0 },
+    { "Stick deadzone",   ITEM_DEADZONE,        0 },
+    { "C-stick deadzone", ITEM_DEADZONE_CSTICK, 0 },
+    { "Response curve",   ITEM_RESPONSE_CURVE,  0 },
 };
 
 typedef struct {
@@ -116,7 +120,9 @@ static void recompute_dirty(void) {
         (s_pending.disable_resetti  != g_pc_settings.disable_resetti) ||
         (s_pending.nes_aspect       != g_pc_settings.nes_aspect) ||
         (s_pending.master_volume    != g_pc_settings.master_volume) ||
-        (s_pending.controller_deadzone != g_pc_settings.controller_deadzone);
+        (s_pending.controller_deadzone != g_pc_settings.controller_deadzone) ||
+        (s_pending.controller_deadzone_cstick != g_pc_settings.controller_deadzone_cstick) ||
+        (s_pending.controller_response_curve != g_pc_settings.controller_response_curve);
 }
 
 static void snapshot(void) {
@@ -178,6 +184,18 @@ static void item_cycle(int id, int dir) {
             if (v > PC_DEADZONE_MAX)  v = PC_DEADZONE_MAX;
             s_pending.controller_deadzone = v;
         } break;
+        case ITEM_DEADZONE_CSTICK: {
+            int v = s_pending.controller_deadzone_cstick + (dir > 0 ? 5 : -5);
+            if (v < 0)               v = 0;
+            if (v > PC_DEADZONE_MAX)  v = PC_DEADZONE_MAX;
+            s_pending.controller_deadzone_cstick = v;
+        } break;
+        case ITEM_RESPONSE_CURVE: {
+            int v = s_pending.controller_response_curve + (dir > 0 ? 10 : -10);
+            if (v < PC_CURVE_MIN)  v = PC_CURVE_MIN;
+            if (v > PC_CURVE_MAX)  v = PC_CURVE_MAX;
+            s_pending.controller_response_curve = v;
+        } break;
     }
     recompute_dirty();
 }
@@ -226,6 +244,17 @@ static void item_format(int id, char* buf, size_t n) {
             else
                 snprintf(buf, n, "< %d%% >", s_pending.controller_deadzone);
             break;
+        case ITEM_DEADZONE_CSTICK:
+            if (s_pending.controller_deadzone_cstick == 0)
+                snprintf(buf, n, "< Off >");
+            else
+                snprintf(buf, n, "< %d%% >", s_pending.controller_deadzone_cstick);
+            break;
+        case ITEM_RESPONSE_CURVE:
+            snprintf(buf, n, "< %d.%02dx >",
+                     s_pending.controller_response_curve / 100,
+                     s_pending.controller_response_curve % 100);
+            break;
         default:
             buf[0] = '\0';
             break;
@@ -245,6 +274,8 @@ static int item_changed(int id) {
         case ITEM_NES_ASPECT:    return s_pending.nes_aspect    != g_pc_settings.nes_aspect;
         case ITEM_MASTER_VOLUME: return s_pending.master_volume != g_pc_settings.master_volume;
         case ITEM_DEADZONE:      return s_pending.controller_deadzone != g_pc_settings.controller_deadzone;
+        case ITEM_DEADZONE_CSTICK: return s_pending.controller_deadzone_cstick != g_pc_settings.controller_deadzone_cstick;
+        case ITEM_RESPONSE_CURVE:  return s_pending.controller_response_curve != g_pc_settings.controller_response_curve;
     }
     return 0;
 }

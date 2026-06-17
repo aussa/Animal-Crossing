@@ -29,8 +29,9 @@ static SDL_GameController* g_controller = NULL;
  * units, preserving direction. Returns TRUE and writes *ox,*oy only when the
  * stick is OUTSIDE the deadzone; returns FALSE (leaving *ox,*oy untouched)
  * when inside, so a keyboard-driven stick value is preserved. dz_inner is the
- * deadzone fraction [0..1]. Y is inverted to match the GC's Y-up convention. */
-static BOOL apply_radial_deadzone(s16 x, s16 y, f32 dz_inner, s8* ox, s8* oy) {
+ * deadzone fraction [0..1]; curve is the response exponent (1.0 = linear).
+ * Y is inverted to match the GC's Y-up convention. */
+static BOOL apply_radial_deadzone(s16 x, s16 y, f32 dz_inner, f32 curve, s8* ox, s8* oy) {
     /* Cheap inscribed-box early-out: when both axes are within the box that
      * fits entirely inside the deadzone circle, the point is guaranteed inside
      * -> no motion, skip the sqrtf. 0.70710678 (1/sqrt2) keeps the box
@@ -54,6 +55,10 @@ static BOOL apply_radial_deadzone(s16 x, s16 y, f32 dz_inner, s8* ox, s8* oy) {
     if (range < 1e-6f) range = 1e-6f;   /* defensive: never divide by ~0 */
     f32 t = (mag - dz_inner) / range;
     if (t > 1.0f) t = 1.0f;
+
+    /* Response curve: t stays in [0,1] and monotonic for curve>0. Skip the
+     * powf for the default linear case so it costs exactly what v1 did. */
+    if (curve != 1.0f) t = powf(t, curve);
 
     /* Map onto GC units with floor compensation for PADClamp's min. */
     f32 out = (f32)PAD_STICK_FLOOR + t * (f32)(PAD_STICK_RIM - PAD_STICK_FLOOR);
@@ -160,17 +165,19 @@ u32 PADRead(PADStatus* status) {
         if (SDL_GameControllerGetButton(g_controller, SDL_CONTROLLER_BUTTON_DPAD_LEFT))  buttons |= PAD_BUTTON_LEFT;
         if (SDL_GameControllerGetButton(g_controller, SDL_CONTROLLER_BUTTON_DPAD_RIGHT)) buttons |= PAD_BUTTON_RIGHT;
 
-        /* Percent -> fraction once per read; shared by both sticks so a live
-         * settings-menu change applies next frame with no restart. */
-        f32 dz = (f32)g_pc_settings.controller_deadzone * 0.01f;
+        /* Per-stick deadzone + shared response curve, computed once per read so
+         * a live settings-menu change applies next frame with no restart. */
+        f32 dz_main   = (f32)g_pc_settings.controller_deadzone * 0.01f;
+        f32 dz_cstick = (f32)g_pc_settings.controller_deadzone_cstick * 0.01f;
+        f32 curve     = (f32)g_pc_settings.controller_response_curve * 0.01f;
 
         s16 lx = SDL_GameControllerGetAxis(g_controller, SDL_CONTROLLER_AXIS_LEFTX);
         s16 ly = SDL_GameControllerGetAxis(g_controller, SDL_CONTROLLER_AXIS_LEFTY);
-        apply_radial_deadzone(lx, ly, dz, &stickX, &stickY);
+        apply_radial_deadzone(lx, ly, dz_main, curve, &stickX, &stickY);
 
         s16 rx = SDL_GameControllerGetAxis(g_controller, SDL_CONTROLLER_AXIS_RIGHTX);
         s16 ry = SDL_GameControllerGetAxis(g_controller, SDL_CONTROLLER_AXIS_RIGHTY);
-        apply_radial_deadzone(rx, ry, dz, &cstickX, &cstickY);
+        apply_radial_deadzone(rx, ry, dz_cstick, curve, &cstickX, &cstickY);
 
         u8 lt = (u8)(SDL_GameControllerGetAxis(g_controller, SDL_CONTROLLER_AXIS_TRIGGERLEFT) >> 7);
         u8 rt = (u8)(SDL_GameControllerGetAxis(g_controller, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) >> 7);

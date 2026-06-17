@@ -16,11 +16,15 @@ typedef struct {
     int disable_resetti;  /* 0=normal (Resetti appears on reset), 1=disable reset penalty */
     int nes_aspect;       /* NES emulator aspect: 0=fullscreen stretch, 1=4:3 pillarbox (default) */
     int master_volume;    /* Applied at the PC audio output, 0-100 (default 100) */
-    int controller_deadzone; /* Analog stick radial deadzone, percent of full range, 0-PC_DEADZONE_MAX (default 15) */
+    int controller_deadzone;        /* Main stick radial deadzone, percent of full range, 0-PC_DEADZONE_MAX (default 15) */
+    int controller_deadzone_cstick; /* C-stick radial deadzone, percent, 0-PC_DEADZONE_MAX (default 15) */
+    int controller_response_curve;  /* Stick response curve exponent x100, PC_CURVE_MIN-PC_CURVE_MAX (100 = linear) */
 } PCSettings;
 
 #define PC_MAX_FPS_CAP 960
-#define PC_DEADZONE_MAX 40   /* Upper bound for controller_deadzone (percent) */
+#define PC_DEADZONE_MAX 40    /* Upper bound for controller deadzones (percent) */
+#define PC_CURVE_MIN    50    /* 0.50x - steeper/twitchier */
+#define PC_CURVE_MAX    300   /* 3.00x - flatter/finer near centre */
 
 extern PCSettings g_pc_settings;
 

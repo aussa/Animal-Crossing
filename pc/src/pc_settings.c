@@ -14,6 +14,8 @@ PCSettings g_pc_settings = {
     .nes_aspect = 1,
     .master_volume = 100,
     .controller_deadzone = 15,
+    .controller_deadzone_cstick = 15,
+    .controller_response_curve = 100,
 };
 
 static const char* SETTINGS_FILE = "settings.ini";
@@ -53,7 +55,11 @@ static const char* DEFAULT_SETTINGS =
     "\n"
     "[Controller]\n"
     "# Analog stick deadzone as a percent of full range (0-40). Bigger ignores more drift.\n"
-    "controller_deadzone = 15\n";
+    "controller_deadzone = 15\n"
+    "# C-stick (right stick) deadzone, percent (0-40).\n"
+    "controller_deadzone_cstick = 15\n"
+    "# Stick response curve, exponent x100 (50-300). 100 = linear; higher = finer near centre.\n"
+    "controller_response_curve = 100\n";
 
 static const char* skip_ws(const char* s) {
     while (*s == ' ' || *s == '\t') s++;
@@ -96,6 +102,10 @@ static void apply_setting(const char* key, const char* value) {
         if (val >= 0 && val <= 100) g_pc_settings.master_volume = val;
     } else if (strcmp(key, "controller_deadzone") == 0) {
         if (val >= 0 && val <= PC_DEADZONE_MAX) g_pc_settings.controller_deadzone = val;
+    } else if (strcmp(key, "controller_deadzone_cstick") == 0) {
+        if (val >= 0 && val <= PC_DEADZONE_MAX) g_pc_settings.controller_deadzone_cstick = val;
+    } else if (strcmp(key, "controller_response_curve") == 0) {
+        if (val >= PC_CURVE_MIN && val <= PC_CURVE_MAX) g_pc_settings.controller_response_curve = val;
     }
 }
 
@@ -161,6 +171,10 @@ void pc_settings_save(void) {
     fprintf(f, "[Controller]\n");
     fprintf(f, "# Analog stick deadzone as a percent of full range (0-40). Bigger ignores more drift.\n");
     fprintf(f, "controller_deadzone = %d\n", g_pc_settings.controller_deadzone);
+    fprintf(f, "# C-stick (right stick) deadzone, percent (0-40).\n");
+    fprintf(f, "controller_deadzone_cstick = %d\n", g_pc_settings.controller_deadzone_cstick);
+    fprintf(f, "# Stick response curve, exponent x100 (50-300). 100 = linear; higher = finer near centre.\n");
+    fprintf(f, "controller_response_curve = %d\n", g_pc_settings.controller_response_curve);
     fclose(f);
     printf("[Settings] Saved %s\n", SETTINGS_FILE);
 }
