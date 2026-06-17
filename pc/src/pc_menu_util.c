@@ -6,6 +6,16 @@
 #include "m_rcp.h"
 #include "main.h" /* SCREEN_WIDTH_F */
 
+int pc_menu_arrow_keys(void) {
+    const Uint8* k = SDL_GetKeyboardState(NULL);
+    int m = 0;
+    if (k[SDL_SCANCODE_UP])    m |= PC_MENU_KEY_UP;
+    if (k[SDL_SCANCODE_DOWN])  m |= PC_MENU_KEY_DOWN;
+    if (k[SDL_SCANCODE_LEFT])  m |= PC_MENU_KEY_LEFT;
+    if (k[SDL_SCANCODE_RIGHT]) m |= PC_MENU_KEY_RIGHT;
+    return m;
+}
+
 void pc_menu_dim_rect(GRAPH* graph, int alpha) {
     Gfx* gfx;
     OPEN_DISP(graph);
