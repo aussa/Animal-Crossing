@@ -35,6 +35,9 @@ int           g_pc_window_w = PC_SCREEN_WIDTH;
 int           g_pc_window_h = PC_SCREEN_HEIGHT;
 int           g_pc_widescreen_stretch = 0;
 
+/* True while the window is minimized (alt-tab handling). */
+static int g_pc_minimized = 0;
+
 /* exe image range — used by seg2k0 to distinguish pointers from segment addresses */
 uintptr_t pc_image_base = 0;
 uintptr_t pc_image_end  = 0;
@@ -116,6 +119,10 @@ void pc_platform_init(void) {
 #ifdef _WIN32
     SetProcessDPIAware();
 #endif
+    /* Don't let SDL minimize a fullscreen/borderless window when it loses
+     * focus. The default (minimize on focus loss) forces a slow video-mode
+     * switch and a multi-second black screen on alt-tab. */
+    SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0");
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO | SDL_INIT_TIMER) < 0) {
         fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
         exit(1);
@@ -139,18 +146,16 @@ void pc_platform_init(void) {
 #endif
 
     {
+        /* Create a plain window; the actual display mode (windowed/borderless/
+         * fullscreen) is applied once below via pc_settings_apply so startup
+         * and the in-game settings menu share ONE code path. We never use an
+         * SDL fullscreen flag - it puts Windows into a fullscreen-optimized
+         * state that black-screens for seconds on alt-tab. */
         Uint32 flags = SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE;
-        int win_w = g_pc_settings.window_width;
-        int win_h = g_pc_settings.window_height;
-        if (g_pc_settings.fullscreen == 1) {
-            flags |= SDL_WINDOW_FULLSCREEN;
-        } else if (g_pc_settings.fullscreen == 2) {
-            flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
-        }
         g_pc_window = SDL_CreateWindow(
             PC_WINDOW_TITLE,
             SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-            win_w, win_h, flags
+            g_pc_settings.window_width, g_pc_settings.window_height, flags
         );
     }
     if (!g_pc_window) {
@@ -174,6 +179,10 @@ void pc_platform_init(void) {
         SDL_Quit();
         exit(1);
     }
+
+    /* Apply the saved display mode through the single shared code path (needs a
+     * current GL context for the swap interval). */
+    pc_settings_apply();
 
     if (g_pc_verbose) {
         const char* vendor = (const char*)glGetString(GL_VENDOR);
@@ -283,6 +292,15 @@ void pc_platform_swap_buffers(void) {
         }
         diag_frame++;
     }
+
+    /* While minimized the surface is hidden; presenting to it stalls some
+     * drivers. Skip the swap (game logic/clock keep running) and yield a
+     * little so we don't busy-spin. */
+    if (g_pc_minimized) {
+        SDL_Delay(16);
+        return;
+    }
+
     SDL_GL_SwapWindow(g_pc_window);
 }
 
@@ -297,8 +315,24 @@ int pc_platform_poll_events(void) {
                 g_pc_running = 0;
                 return 0;
             case SDL_WINDOWEVENT:
-                if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
-                    pc_platform_update_window_size();
+                switch (event.window.event) {
+                    case SDL_WINDOWEVENT_SIZE_CHANGED:
+                        pc_platform_update_window_size();
+                        break;
+                    case SDL_WINDOWEVENT_MINIMIZED:
+                        g_pc_minimized = 1;
+                        break;
+                    case SDL_WINDOWEVENT_RESTORED:
+                        g_pc_minimized = 0;
+                        break;
+                    case SDL_WINDOWEVENT_FOCUS_LOST:
+                        /* Drop vsync while unfocused so SwapWindow can't block
+                         * on an occluded surface. Restored on focus gain. */
+                        SDL_GL_SetSwapInterval(0);
+                        break;
+                    case SDL_WINDOWEVENT_FOCUS_GAINED:
+                        SDL_GL_SetSwapInterval(g_pc_settings.vsync);
+                        break;
                 }
                 break;
             case SDL_CONTROLLERDEVICEADDED:

@@ -359,6 +359,9 @@ static void aAL_pc_game_start_wait(ANIMAL_LOGO_ACTOR* actor, GAME* game) {
 
   if (actor->pc_options_open) {
     s8 stick_x = gamePT->pads[PAD0].now.stick_x;
+    /* Arrow keys map to the C-stick, which the game pad drops, so read them
+     * directly here to keep keyboard nav consistent with ESC -> Settings. */
+    int ak = pc_menu_arrow_keys();
 
     /* Drive the shared settings menu. It returns 0 when the user picks
      * Back from the main settings page, which we treat as "close". */
@@ -369,13 +372,13 @@ static void aAL_pc_game_start_wait(ANIMAL_LOGO_ACTOR* actor, GAME* game) {
       } else if (on_btn & BUTTON_B) {
         if (!pc_settings_menu_cancel()) actor->pc_options_open = 0;
         actor->pc_cursor_cooldown = 10.0f;
-      } else if (stick_y > 30 || (on_btn & BUTTON_DUP)) {
+      } else if (stick_y > 30 || (on_btn & BUTTON_DUP) || (ak & PC_MENU_KEY_UP)) {
         pc_settings_menu_nav_up();   actor->pc_cursor_cooldown = 8.0f;
-      } else if (stick_y < -30 || (on_btn & BUTTON_DDOWN)) {
+      } else if (stick_y < -30 || (on_btn & BUTTON_DDOWN) || (ak & PC_MENU_KEY_DOWN)) {
         pc_settings_menu_nav_down(); actor->pc_cursor_cooldown = 8.0f;
-      } else if (stick_x > 30 || (on_btn & BUTTON_DRIGHT)) {
+      } else if (stick_x > 30 || (on_btn & BUTTON_DRIGHT) || (ak & PC_MENU_KEY_RIGHT)) {
         pc_settings_menu_nav_right(); actor->pc_cursor_cooldown = 8.0f;
-      } else if (stick_x < -30 || (on_btn & BUTTON_DLEFT)) {
+      } else if (stick_x < -30 || (on_btn & BUTTON_DLEFT) || (ak & PC_MENU_KEY_LEFT)) {
         pc_settings_menu_nav_left(); actor->pc_cursor_cooldown = 8.0f;
       }
     }
@@ -384,12 +387,13 @@ static void aAL_pc_game_start_wait(ANIMAL_LOGO_ACTOR* actor, GAME* game) {
 
   /* Main menu navigation (3 items: Start / Options / Quit) */
   if (actor->pc_cursor_cooldown <= 0.0f) {
-    if (stick_y > 30 || (on_btn & BUTTON_DUP)) {
+    int ak = pc_menu_arrow_keys();
+    if (stick_y > 30 || (on_btn & BUTTON_DUP) || (ak & PC_MENU_KEY_UP)) {
       if (actor->pc_menu_sel > 0) {
         actor->pc_menu_sel--;
         actor->pc_cursor_cooldown = 10.0f;
       }
-    } else if (stick_y < -30 || (on_btn & BUTTON_DDOWN)) {
+    } else if (stick_y < -30 || (on_btn & BUTTON_DDOWN) || (ak & PC_MENU_KEY_DOWN)) {
       if (actor->pc_menu_sel < 2) {
         actor->pc_menu_sel++;
         actor->pc_cursor_cooldown = 10.0f;
