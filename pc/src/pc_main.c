@@ -1,6 +1,10 @@
 /* pc_main.c - PC entry point: SDL2/GL init, crash protection, boot sequence */
 #ifndef _WIN32
 #define _GNU_SOURCE  /* needed for dladdr */
+#include <unistd.h>  /* for chdir */
+#else
+#include <direct.h>  /* for _chdir */
+#define chdir _chdir
 #endif
 #include "pc_platform.h"
 #include "pc_gx_internal.h"
@@ -39,7 +43,7 @@ int           g_pc_widescreen_stretch = 0;
 /* True while the window is minimized (alt-tab handling). */
 static int g_pc_minimized = 0;
 
-/* exe image range — used by seg2k0 to distinguish pointers from segment addresses */
+/* exe image range - used by seg2k0 to distinguish pointers from segment addresses */
 uintptr_t pc_image_base = 0;
 uintptr_t pc_image_end  = 0;
 
@@ -70,7 +74,7 @@ static LONG WINAPI pc_veh_handler(PEXCEPTION_POINTERS ep) {
     return EXCEPTION_CONTINUE_SEARCH;
 }
 #else
-/* POSIX equivalent of VEH — longjmp from signal handler (POSIX-defined for program faults) */
+/* POSIX equivalent of VEH - longjmp from signal handler (POSIX-defined for program faults) */
 static void pc_signal_handler(int sig, siginfo_t* info, void* ucontext) {
     (void)ucontext;
     if (pc_active_jmpbuf != NULL) {
@@ -414,6 +418,16 @@ static int pc_parse_rain_intensity(const char* text) {
 }
 
 int main(int argc, char* argv[]) {
+    /* Change working directory to the executable's directory so that assets/saves
+     * can always be located relatively regardless of where the game is launched. */
+    {
+        char* base = SDL_GetBasePath();
+        if (base) {
+            chdir(base);
+            SDL_free(base);
+        }
+    }
+
 #ifndef _WIN32
     /* prefer discrete GPU on Linux (NVIDIA PRIME and AMD) while respecting user overrides */
     setenv("__NV_PRIME_RENDER_OFFLOAD", "1", 0);
@@ -493,7 +507,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    /* Always write stderr (errors/fatals) to a log file — the exe has no console
+    /* Always write stderr (errors/fatals) to a log file - the exe has no console
      * window so crashes would be completely silent otherwise. stdout goes to the
      * log only in verbose mode; in non-verbose mode it goes to NUL to avoid the
      * FPS cost of unbuffered terminal writes. The log is truncated each launch. */
@@ -520,7 +534,7 @@ int main(int argc, char* argv[]) {
     }
 
     fprintf(stderr, "[PC] init: exe image range\n");
-    /* exe image range for seg2k0 — BSS can overlap N64 segment addresses */
+    /* exe image range for seg2k0 - BSS can overlap N64 segment addresses */
 #ifdef _WIN32
     {
         HMODULE exe = GetModuleHandle(NULL);
@@ -532,11 +546,11 @@ int main(int argc, char* argv[]) {
     }
 #elif defined(__APPLE__)
     {
-        /* macOS: use dladdr — no ELF headers available */
+        /* macOS: use dladdr - no ELF headers available */
         Dl_info dl;
         if (dladdr((void*)main, &dl) && dl.dli_fbase) {
             pc_image_base = (uintptr_t)dl.dli_fbase;
-            /* Estimate image end — on 64-bit, seg2k0 uses threshold check
+            /* Estimate image end - on 64-bit, seg2k0 uses threshold check
              * instead of image range, so this is defense-in-depth only. */
             pc_image_end = pc_image_base + 0x10000000;
         }
@@ -619,7 +633,7 @@ int main(int argc, char* argv[]) {
     }
 
     ac_entry();                         /* sets HotStartEntry = &entry */
-    boot_main(argc, (const char**)argv); /* full init → HotStartEntry → game loop */
+    boot_main(argc, (const char**)argv); /* full init -> HotStartEntry -> game loop */
 
     pc_disc_shutdown();
     pc_platform_shutdown();

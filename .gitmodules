@@ -1,0 +1,6 @@
+[submodule "pc/external/fixnes"]
+	path = pc/external/fixnes
+	url = https://github.com/FIX94/fixNES.git
+[submodule "pc/external/bc7decomp"]
+	path = pc/external/bc7decomp
+	url = https://github.com/richgel999/bc7enc.git

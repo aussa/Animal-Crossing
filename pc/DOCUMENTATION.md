@@ -1,4 +1,4 @@
-# Animal Crossing PC Port — Developer Documentation
+# Animal Crossing PC Port - Developer Documentation
 
 PC port of Animal Crossing GameCube built on top of a 99.52% complete C decompilation.
 
@@ -7,33 +7,33 @@ PC port of Animal Crossing GameCube built on top of a 99.52% complete C decompil
 The game's rendering has 3 tiers:
 
 ```
-Game code (N64 display lists) → emu64 (DL interpreter) → GX (GameCube GPU API) → [OpenGL]
+Game code (N64 display lists) -> emu64 (DL interpreter) -> GX (GameCube GPU API) -> [OpenGL]
 ```
 
-We replace **only tier 3** (GX → OpenGL 3.3). The emu64 layer and game code stay as-is, with `#ifdef TARGET_PC` guards where platform differences require it.
+We replace **only tier 3** (GX -> OpenGL 3.3). The emu64 layer and game code stay as-is, with `#ifdef TARGET_PC` guards where platform differences require it.
 
 ### Boot Chain
 
 ```
 main() [pc_main.c]
-  → pc_settings_load()          # load settings.ini
-  → pc_platform_init()          # SDL2, GL 3.3, GLAD
-  → pc_disc_init()              # find & open disc image (CISO/ISO/GCM)
-  → pc_assets_init()            # extract DOL/REL from disc, load all ~2500 assets
-  → pc_texture_pack_init()      # scan texture_pack/ for HD replacements
-  → ac_entry()                  # game's main.c: sets HotStartEntry = &entry
-  → boot_main()                 # boot.c: OSInit, DVD, archives
-    → entry() → mainproc() → graph_proc()   # THE MAIN LOOP
+  -> pc_settings_load()          # load settings.ini
+  -> pc_platform_init()          # SDL2, GL 3.3, GLAD
+  -> pc_disc_init()              # find & open disc image (CISO/ISO/GCM)
+  -> pc_assets_init()            # extract DOL/REL from disc, load all ~2500 assets
+  -> pc_texture_pack_init()      # scan texture_pack/ for HD replacements
+  -> ac_entry()                  # game's main.c: sets HotStartEntry = &entry
+  -> boot_main()                 # boot.c: OSInit, DVD, archives
+    -> entry() -> mainproc() -> graph_proc()   # THE MAIN LOOP
 
 graph_proc() loops over scenes via game_dlftbls[]:
-  first_game → second_game → trademark → select (title demo)
-  → player_select (scene 19) → play (gameplay)
-  OR: --model-viewer → model_viewer_init (scene 10)
+  first_game -> second_game -> trademark -> select (title demo)
+  -> player_select (scene 19) -> play (gameplay)
+  OR: --model-viewer -> model_viewer_init (scene 10)
 
 Each frame: graph_main()
-  → game_main() → scene->exec()         # builds N64 display lists
-  → graph_task_set00() → emu64_taskstart()  # processes DLs → GX → GL
-  → VIWaitForRetrace()                   # SDL swap + event pump + frame pacing
+  -> game_main() -> scene->exec()         # builds N64 display lists
+  -> graph_task_set00() -> emu64_taskstart()  # processes DLs -> GX -> GL
+  -> VIWaitForRetrace()                   # SDL swap + event pump + frame pacing
 ```
 
 ## Runtime Asset Loading
@@ -44,11 +44,11 @@ The original decomp compiles ~16,400 binary `.inc` files directly into the execu
 
 ```
 User provides disc image (.ciso/.iso/.gcm)
-  → pc_disc_init() opens and parses GCM filesystem
-  → pc_assets_init() extracts main.dol + foresta.rel.szs into memory
-  → ~2500 assets loaded from DOL/REL data at their original ROM offsets
-  → Byte-swap applied per asset (SWAP_NONE/SWAP_U16/SWAP_U32/SWAP_VTX)
-  → Source files use lazy-load pattern for function-local static data
+  -> pc_disc_init() opens and parses GCM filesystem
+  -> pc_assets_init() extracts main.dol + foresta.rel.szs into memory
+  -> ~2500 assets loaded from DOL/REL data at their original ROM offsets
+  -> Byte-swap applied per asset (SWAP_NONE/SWAP_U16/SWAP_U32/SWAP_VTX)
+  -> Source files use lazy-load pattern for function-local static data
 ```
 
 ### Code Generation
@@ -79,7 +79,7 @@ User provides disc image (.ciso/.iso/.gcm)
 | File | Purpose |
 |------|---------|
 | `pc/src/pc_main.c` | Entry point, SDL2/GL init, CLI flags, DPI scaling |
-| `pc/src/pc_gx.c` | GX → OpenGL: all GX API functions, vertex submission, state, draw dispatch, dirty-flag uniform system |
+| `pc/src/pc_gx.c` | GX -> OpenGL: all GX API functions, vertex submission, state, draw dispatch, dirty-flag uniform system |
 | `pc/src/pc_gx_tev.c` | TEV shader: GLSL program loading, uniform upload |
 | `pc/src/pc_gx_texture.c` | 10 GC texture format decoders, 2048-entry cache with FNV-1a |
 | `pc/src/pc_os.c` | Dolphin OS: memory arena, timers, calendar time, message queues, thread stubs |
@@ -99,13 +99,13 @@ User provides disc image (.ciso/.iso/.gcm)
 
 | File | Purpose |
 |------|---------|
-| `pc/src/pc_card.c` | Memory card API → local file save/load |
+| `pc/src/pc_card.c` | Memory card API -> local file save/load |
 | `pc/src/pc_m_card.c` | Memory card manager: GCI save/load, village generation, ARAM data blocks |
 | `pc/src/pc_save_bswap.c` | GCI save file bidirectional LE↔BE byte-swap (Dolphin-compatible) |
 | `pc/src/pc_pad.c` | Keyboard + SDL2 gamepad input (GC button format) |
 | `pc/src/pc_audio.c` | SDL2 audio: 32kHz s16 stereo, dedicated producer thread + SPSC ring buffer |
-| `pc/src/pc_vi.c` | Video interface → SDL swap, timer-based 60fps pacing with spin-wait |
-| `pc/src/pc_aram.c` | 16MB ARAM buffer, bump allocator, DMA → memcpy |
+| `pc/src/pc_vi.c` | Video interface -> SDL swap, timer-based 60fps pacing with spin-wait |
+| `pc/src/pc_aram.c` | 16MB ARAM buffer, bump allocator, DMA -> memcpy |
 
 #### Enhancements
 
@@ -152,7 +152,7 @@ These are the most-modified files from the upstream decompilation:
 | `src/static/libforest/emu64/emu64_utility.c` | seg2k0 proximity heuristic, N64Mtx byte-swap |
 | `src/static/boot.c` | Arena init, REL skip, actable endian swap |
 | `src/graph.c` | Frame loop diagnostics, model viewer routing |
-| `src/padmgr.c` | GC→N64 button conversion, once-per-frame guard |
+| `src/padmgr.c` | GC->N64 button conversion, once-per-frame guard |
 | `src/game/m_play.c` | Scene transition diagnostics, fog BG fix, widescreen stretch markers |
 | `src/game/m_player_lib.c` | Player palette byte-swap from ARAM |
 | `src/game/m_field_make.c` | FG data u16 byte-swap (3 swap sites) |
@@ -180,11 +180,11 @@ VAO attribute pointers and quad-to-triangle EBO are set up once at init, not per
 - **SHARED** (GX_PNMTX0, slot 0): pre-transformed at load time for seamless character joints
 - **NONSHARED** (GX_PNMTX1, slot 1): transformed by GX matrix each frame
 
-Do NOT force all vertices to NONSHARED — it breaks character joint seams.
+Do NOT force all vertices to NONSHARED - it breaks character joint seams.
 
 ### TEV Pipeline
 
-Up to 3 stages, KONST colors, swap tables, per-stage texture binding. Single GLSL program with uniform-driven stages. Shaders loaded from `pc/shaders/` at runtime (required — no embedded fallback).
+Up to 3 stages, KONST colors, swap tables, per-stage texture binding. Single GLSL program with uniform-driven stages. Shaders loaded from `pc/shaders/` at runtime (required - no embedded fallback).
 
 Per-stage uniforms:
 - **Bias**: ADDHALF (+0.5), SUBHALF (-0.5) applied after TEV blend
@@ -248,8 +248,8 @@ All effects enabled: reverb, comb filter, Haas effect, Dolby surround.
 Audio production runs on a dedicated SDL thread, matching the GC's `neosproc` thread model:
 
 - **Game thread**: `Na_GameFrame()` queues audio commands via thread-safe message queues (SDL_mutex-protected `Z_osSendMesg`/`Z_osRecvMesg`)
-- **Audio producer thread**: Loops calling `pc_audio_process_frame()` → `CreateAudioTask` → `RspStart2` (rspsim), writes samples into SPSC ring buffer (32768 samples = ~512ms)
-- **SDL callback thread**: Reads from ring buffer → speakers
+- **Audio producer thread**: Loops calling `pc_audio_process_frame()` -> `CreateAudioTask` -> `RspStart2` (rspsim), writes samples into SPSC ring buffer (32768 samples = ~512ms)
+- **SDL callback thread**: Reads from ring buffer -> speakers
 
 This decoupling prevents OS thread preemption of the game thread from causing audio dropouts. Frame pacing uses timer-based 60fps with spin-wait (no longer tied to audio buffer fill level).
 
@@ -320,7 +320,7 @@ Actor profile validation remains in `m_actor.c` to skip NULL/invalid profiles be
 
 32-bit MinGW GCC 15.x (i686) + CMake + SDL2 2.30.10 + GLAD2 (GL 3.3 Core).
 
-**Must compile as 32-bit** — decomp code casts pointers to u32 everywhere.
+**Must compile as 32-bit** - decomp code casts pointers to u32 everywhere.
 
 ### Quick Start
 
@@ -363,15 +363,15 @@ Linux support uses POSIX equivalents: `mmap()` instead of `VirtualAlloc()`, `mkd
 
 ## Common Pitfalls
 
-- **32-bit required**: 64-bit builds crash in JKRHeap (pointer→u32 casts).
+- **32-bit required**: 64-bit builds crash in JKRHeap (pointer->u32 casts).
 - **`__attribute__((weak))`** doesn't work on MinGW/PE. Use regular definitions.
-- **libc64/malloc.c** is excluded — it redefines system malloc and crashes the CRT.
+- **libc64/malloc.c** is excluded - it redefines system malloc and crashes the CRT.
 - **NDEBUG must always be defined**: decomp asserts have side effects. Without NDEBUG, assert macros run and cause texture corruption.
 - **Optimization must be -O0**: any optimization (-O1+) exposes UB in decomp code (infinite spawn loops, crashes).
 - **windows.h macros**: always `#undef near` / `#undef far` after including.
 - **GC address space**: emu64 uses 0x80000000-0x83000000 range. Guard with TARGET_PC.
 - **glClear respects write masks**: must set glDepthMask(GL_TRUE) + glColorMask(all TRUE) before glClear.
 - **seg2k0 collision**: PC heap pointers can collide with N64 segment addresses. Fixed with proximity heuristic + VirtualAlloc/mmap arena at >=0x10000000.
-- **`#included .c` files**: emu64_utility.c, emu64_print.cpp, jsyswrapper_ext.cpp, jsyswrapper_main.cpp, ac_animal_logo_misc.c, m_item_debug.c, ac_npc_shop_common.c — these are compiled as part of their parent file, not standalone.
-- **Title demo OOB**: `demo_npc_list` has 14 valid entries but `mNpc_SetAnimalTitleDemo` loops 15 times. On GC, the garbage 15th read was benign; on PC it produced invalid NPC `looks` → OOB crash in wander logic. Fixed with sentinel entry, slot clearing, and looks clamp.
+- **`#included .c` files**: emu64_utility.c, emu64_print.cpp, jsyswrapper_ext.cpp, jsyswrapper_main.cpp, ac_animal_logo_misc.c, m_item_debug.c, ac_npc_shop_common.c - these are compiled as part of their parent file, not standalone.
+- **Title demo OOB**: `demo_npc_list` has 14 valid entries but `mNpc_SetAnimalTitleDemo` loops 15 times. On GC, the garbage 15th read was benign; on PC it produced invalid NPC `looks` -> OOB crash in wander logic. Fixed with sentinel entry, slot clearing, and looks clamp.
 - **EFB-copied textures are LE**: ROM textures are BE, but EFB copies are generated in LE on PC. Texture decoder endianness fixes must not break EFB copies.

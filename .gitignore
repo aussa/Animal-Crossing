@@ -19,9 +19,7 @@ orig/*/*
 *.MAP
 
 # Build files
-build/
-build32/
-build64/
+**/build*/
 .ninja_*
 build.ninja
 
@@ -37,6 +35,7 @@ compile_commands.json
 /*.txt
 !requirements.txt
 *.exe
+.DS_Store
 
 # For saving work files into (like IDB)
 temp/
@@ -48,3 +47,15 @@ temp/
 include/PR/
 include/gcc/
 include/compiler/gcc/stdlib.h
+
+# =============================================================================
+# PC Port specific ignores
+# =============================================================================
+pc/AnimalCrossing.log
+pc/keybindings.ini
+pc/settings.ini
+pc/rom/
+pc/save/
+rom/
+*.sav
+*.log
