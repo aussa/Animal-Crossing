@@ -9,6 +9,24 @@ extern "C" {
 
 #define GXFIFO_ADDR 0xCC008000
 
+#ifdef AC_USE_RAINFALL
+#if defined(AC_RAINFALL_BISECT_LEGACY_GXWGFIFO)
+typedef union {
+  u8 u8;
+  u16 u16;
+  u32 u32;
+  u64 u64;
+  s8 s8;
+  s16 s16;
+  s32 s32;
+  s64 s64;
+  f32 f32;
+  f64 f64;
+} PPCWGPipe;
+#define GXWGFifo (*(volatile PPCWGPipe*)GXFIFO_ADDR)
+#endif
+#else
+
 typedef union {
   u8 u8;
   u16 u16;
@@ -27,6 +45,8 @@ volatile PPCWGPipe GXWGFifo AT_ADDRESS(GXFIFO_ADDR);
 #else
 #define GXWGFifo (*(volatile PPCWGPipe*)GXFIFO_ADDR)
 #endif
+
+#endif /* !AC_USE_RAINFALL */
 
 #ifdef TARGET_PC
 

@@ -37,7 +37,6 @@ extern "C" int pc_renderer_init(int windowW, int windowH, const char* title, flo
     cfg.onEvent = onEvent;
     cfg.shaderCacheDir = "shader_cache";
 #if defined(__APPLE__)
-    /* Phase 1: OpenGL backend first — fewer moving parts while validating GX. */
     cfg.backendChoice = RF_BACKEND_CHOICE_OPENGL;
 #else
     cfg.backendChoice = RF_BACKEND_CHOICE_AUTO;

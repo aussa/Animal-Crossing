@@ -12,6 +12,12 @@ set(CMAKE_CXX_STANDARD 17)
 option(PC_CONSOLE "Show console window (disables -mwindows, useful for debugging)" OFF)
 option(AC_USE_RAINFALL "Use Rainfall renderer instead of legacy pc_gx" OFF)
 
+# Rainfall bisect toggles (only meaningful with AC_USE_RAINFALL=ON)
+option(AC_RAINFALL_BISECT_NO_FLUSH "Bisect: stub pc_gx_flush_if_begin_complete" OFF)
+option(AC_RAINFALL_BISECT_NO_FORCE_INCLUDE "Bisect: disable force-include of rainfall/platform/pc.h" OFF)
+option(AC_RAINFALL_BISECT_NO_TEXTURE_BIND "Bisect: skip pc_texture_pack_bind_rainfall" OFF)
+option(AC_RAINFALL_BISECT_LEGACY_GXWGFIFO "Bisect: use decomp GXWGFifo address macro" OFF)
+
 # Game version: 0=USA (GAFE01_00), 1=AUS (GAFU01_00), 2=JPN (GAFJ01_00)
 set(AC_VERSION 0 CACHE STRING "Animal Crossing version (0=USA, 1=AUS, 2=JPN)")
 set_property(CACHE AC_VERSION PROPERTY STRINGS 0 1 2)
@@ -92,11 +98,13 @@ endif()
 
 if(AC_USE_RAINFALL)
     set(AC_FORCE_INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/include/rainfall/platform/pc.h")
+    if(NOT AC_RAINFALL_BISECT_NO_FORCE_INCLUDE)
     set_source_files_properties(
         ${GAME_C_SOURCES} ${GAME_CXX_SOURCES}
         PROPERTIES
             COMPILE_OPTIONS "$<$<CXX_COMPILER_ID:MSVC>:/FI${AC_FORCE_INCLUDE}>;$<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-include;${AC_FORCE_INCLUDE}>"
     )
+    endif()
 endif()
 
 set_target_properties(ac_pc PROPERTIES

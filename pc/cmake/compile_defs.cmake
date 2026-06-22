@@ -17,6 +17,15 @@ add_compile_definitions(
 
 if(AC_USE_RAINFALL)
     add_compile_definitions(AC_USE_RAINFALL HAS_SDL3=1 HAS_OPENGL=1)
+    if(AC_RAINFALL_BISECT_NO_FLUSH)
+        add_compile_definitions(AC_RAINFALL_BISECT_NO_FLUSH=1)
+    endif()
+    if(AC_RAINFALL_BISECT_NO_TEXTURE_BIND)
+        add_compile_definitions(AC_RAINFALL_BISECT_NO_TEXTURE_BIND=1)
+    endif()
+    if(AC_RAINFALL_BISECT_LEGACY_GXWGFIFO)
+        add_compile_definitions(AC_RAINFALL_BISECT_LEGACY_GXWGFIFO=1)
+    endif()
 endif()
 
 if(APPLE)

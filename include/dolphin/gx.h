@@ -1,6 +1,10 @@
 #ifndef DOLPHIN_GX_H
 #define DOLPHIN_GX_H
 
+#if defined(AC_USE_RAINFALL) && defined(PC_DOLPHIN_GX_H) && !defined(AC_RAINFALL_BISECT_LEGACY_GXWGFIFO)
+
+#else
+
 #include <dolphin/types.h>
 
 #ifdef __cplusplus
@@ -35,5 +39,7 @@ extern "C" {
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* !(AC_USE_RAINFALL && PC_DOLPHIN_GX_H) */
 
 #endif

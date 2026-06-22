@@ -51,10 +51,26 @@ static void pc_gx_update_aspect(void) {
 }
 
 void pc_gx_flush_if_begin_complete(void) {
+#ifdef AC_RAINFALL_BISECT_NO_FLUSH
+    /* bisect: intentionally empty */
+#else
     rfGXFlushImmediateIfComplete();
+#endif
 }
 
 void ac_gx_patch_projection(f32 mtx[4][4], GXProjectionType type) {
+    if (type == GX_PERSPECTIVE) {
+        mtx[3][0] = 0.0f;
+        mtx[3][1] = 0.0f;
+        mtx[3][2] = -1.0f;
+        mtx[3][3] = 0.0f;
+    } else {
+        mtx[3][0] = 0.0f;
+        mtx[3][1] = 0.0f;
+        mtx[3][2] = 0.0f;
+        mtx[3][3] = 1.0f;
+    }
+
 #ifdef PC_ENHANCEMENTS
     if (g_pc_widescreen_stretch == 0 ||
         (g_pc_widescreen_stretch == 2 && type == GX_ORTHOGRAPHIC)) {
@@ -62,9 +78,6 @@ void ac_gx_patch_projection(f32 mtx[4][4], GXProjectionType type) {
             mtx[0][0] *= g_aspect_factor;
         }
     }
-#else
-    (void)type;
-    (void)mtx;
 #endif
 }
 

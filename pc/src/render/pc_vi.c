@@ -1,5 +1,12 @@
 /* pc_vi.c - video interface -> SDL window swap + frame pacing */
 #include "pc_platform.h"
+#include <stdio.h>
+#include <stdlib.h>
+
+#ifdef AC_USE_RAINFALL
+#include "render/pc_renderer.h"
+extern void rfRendererGetStats(u32* drawCount, u32* preMergeCount, u32* vertexBytes);
+#endif
 
 #define VI_TVMODE_NTSC_INT    0
 #define VI_TVMODE_NTSC_DS     1
@@ -104,6 +111,27 @@ void VIWaitForRetrace(void) {
 
     retrace_count++;
     pc_frame_counter++;
+
+#ifdef AC_USE_RAINFALL
+    {
+        static int diag_enabled = -1;
+        if (diag_enabled < 0) {
+            const char* env = getenv("AC_RAINFALL_DIAG");
+            diag_enabled = (env && env[0] != '0') ? 1 : 0;
+        }
+        if (diag_enabled && pc_frame_counter > 60 && (pc_frame_counter % 120) == 0) {
+            u32 rf_draws = 0, rf_pre = 0, rf_verts = 0;
+            rfRendererGetStats(&rf_draws, &rf_pre, &rf_verts);
+            fprintf(stderr,
+                    "[BISECT] frame=%u emu64 cmds=%d tri=%d vtx=%d dl=%d "
+                    "rf_draws=%u rf_verts=%u cull_vis=%d cull_rej=%d\n",
+                    (unsigned)pc_frame_counter,
+                    pc_emu64_frame_cmds, pc_emu64_frame_tri_cmds, pc_emu64_frame_vtx_cmds,
+                    pc_emu64_frame_dl_cmds, (unsigned)rf_draws, (unsigned)rf_verts,
+                    pc_emu64_frame_cull_visible, pc_emu64_frame_cull_rejected);
+        }
+    }
+#endif
 }
 
 u32 VIGetRetraceCount(void) { return retrace_count; }
