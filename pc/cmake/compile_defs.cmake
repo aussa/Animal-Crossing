@@ -15,6 +15,10 @@ add_compile_definitions(
     SDL_ENABLE_OLD_NAMES
 )
 
+if(AC_USE_RAINFALL)
+    add_compile_definitions(AC_USE_RAINFALL HAS_SDL3=1 HAS_OPENGL=1)
+endif()
+
 if(APPLE)
     add_compile_definitions(GL_SILENCE_DEPRECATION)
 endif()

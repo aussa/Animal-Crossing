@@ -1,6 +1,9 @@
 /* pc_settings.c - runtime settings loaded from settings.ini */
 #include "pc_settings.h"
 #include "pc_platform.h"
+#ifdef AC_USE_RAINFALL
+#include "render/pc_renderer.h"
+#endif
 
 PCSettings g_pc_settings = {
     .window_width  = PC_SCREEN_WIDTH,
@@ -316,7 +319,11 @@ void pc_settings_apply(void) {
         }
     }
 
+#ifdef AC_USE_RAINFALL
+    pc_renderer_set_vsync(g_pc_settings.vsync);
+#else
     SDL_GL_SetSwapInterval(g_pc_settings.vsync);
+#endif
     pc_platform_update_window_size();
 
     printf("[Settings] Applied: %dx%d fullscreen=%d vsync=%d max_fps=%d msaa=%d\n",

@@ -99,6 +99,8 @@ void pc_platform_update_window_size(void);
 #define PC_NOOP_WIDESCREEN_STRETCH_OFF 0xAC5700u
 extern int g_pc_widescreen_stretch;
 
+extern int           g_pc_minimized;
+
 /* --- Functions --- */
 void pc_platform_init(void);
 void pc_platform_shutdown(void);

@@ -4,9 +4,6 @@
 
 set(PC_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/pc_main.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/render/pc_gx.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/render/pc_gx_tev.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/render/pc_gx_texture.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/render/pc_gbi_runtime.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/os/pc_os.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/utility/pc_dvd.c
@@ -40,17 +37,29 @@ set(PC_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/utility/pc_japan_msg.c
 )
 
+if(AC_USE_RAINFALL)
+    list(APPEND PC_SOURCES
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/render/pc_renderer.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/render/gx_pc.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/render/pc_gx_host.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/os/pc_platform_events.c
+    )
+else()
+    list(APPEND PC_SOURCES
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/render/pc_gx.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/render/pc_gx_tev.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/render/pc_gx_texture.c
+    )
+endif()
+
 # =============================================================================
 # PC Port Warnings Configuration
 # =============================================================================
-# Enable warnings to catch bugs in code we control
 set(PC_C_SOURCES ${PC_SOURCES})
 list(FILTER PC_C_SOURCES EXCLUDE REGEX "\\.cpp$")
 set(PC_CXX_SOURCES ${PC_SOURCES})
 list(FILTER PC_CXX_SOURCES INCLUDE REGEX "\\.cpp$")
 
-# Note: -Wno-comment/-Wno-unused-function/-Wno-builtin-declaration-mismatch suppress
-# warnings from decomp headers (types.h, gfxprint.h, OSRtc.h, libultra.h) that we can't modify.
 set(PC_WARN_SUPPRESS "-Wno-unused-parameter;-Wno-sign-compare;-Wno-comment;-Wno-unused-function")
 if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang")
     list(APPEND PC_WARN_SUPPRESS "-Wno-builtin-declaration-mismatch")

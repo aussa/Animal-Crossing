@@ -1,4 +1,4 @@
-/* pc_main.c - PC entry point: SDL3 + legacy GL/pc_gx init, crash protection, boot */
+/* pc_main.c - PC entry point: SDL3 platform + legacy or Rainfall GX renderer */
 #ifndef _WIN32
 #define _GNU_SOURCE  /* needed for dladdr */
 #include <unistd.h>  /* for chdir */
@@ -7,7 +7,11 @@
 #define chdir _chdir
 #endif
 #include "pc_platform.h"
+#ifdef AC_USE_RAINFALL
+#include "render/pc_renderer.h"
+#else
 #include "pc_gx_internal.h"
+#endif
 #include "pc_texture_pack.h"
 #include "pc_settings.h"
 #include "pc_keybindings.h"
@@ -41,7 +45,7 @@ int           g_pc_window_h = PC_SCREEN_HEIGHT;
 int           g_pc_widescreen_stretch = 0;
 
 /* True while the window is minimized (alt-tab handling). */
-static int g_pc_minimized = 0;
+int g_pc_minimized = 0;
 
 /* exe image range - used by seg2k0 to distinguish pointers from segment addresses */
 uintptr_t pc_image_base = 0;
@@ -124,10 +128,31 @@ void pc_platform_init(void) {
 #ifdef _WIN32
     SetProcessDPIAware();
 #endif
-    /* Don't let SDL minimize a fullscreen/borderless window when it loses
-     * focus. The default (minimize on focus loss) forces a slow video-mode
-     * switch and a multi-second black screen on alt-tab. */
     SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0");
+
+#ifdef AC_USE_RAINFALL
+    if (!SDL_Init(SDL_INIT_AUDIO | SDL_INIT_EVENTS)) {
+        fprintf(stderr, "[PC] SDL_Init failed: %s\n", SDL_GetError());
+        exit(1);
+    }
+    fprintf(stderr, "[PC] SDL_Init OK\n");
+
+    if (!pc_renderer_init(g_pc_settings.window_width, g_pc_settings.window_height,
+                          PC_WINDOW_TITLE, 1.0f)) {
+        fprintf(stderr, "[PC] Rainfall renderer init failed\n");
+        SDL_Quit();
+        exit(1);
+    }
+
+    g_pc_window = (SDL_Window*)pc_renderer_get_window();
+    g_pc_gl_context = NULL;
+    pc_platform_update_window_size();
+    pc_settings_apply();
+    fprintf(stderr, "[PC] Rainfall renderer OK (%dx%d)\n", g_pc_window_w, g_pc_window_h);
+
+    pc_gx_init();
+    fprintf(stderr, "[PC] GX init OK\n");
+#else
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD | SDL_INIT_AUDIO | SDL_INIT_EVENTS)) {
         fprintf(stderr, "[PC] SDL_Init failed: %s\n", SDL_GetError());
         exit(1);
@@ -138,7 +163,6 @@ void pc_platform_init(void) {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 #ifdef __APPLE__
-    /* macOS requires forward-compatible flag for Core Profile contexts */
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
 #endif
     SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
@@ -152,11 +176,6 @@ void pc_platform_init(void) {
 #endif
 
     {
-        /* Create a plain window; the actual display mode (windowed/borderless/
-         * fullscreen) is applied once below via pc_settings_apply so startup
-         * and the in-game settings menu share ONE code path. We never use an
-         * SDL fullscreen flag - it puts Windows into a fullscreen-optimized
-         * state that black-screens for seconds on alt-tab. */
         Uint32 flags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
         g_pc_window = SDL_CreateWindow(
             PC_WINDOW_TITLE,
@@ -193,8 +212,6 @@ void pc_platform_init(void) {
     }
     fprintf(stderr, "[PC] GL %s loaded\n", (const char*)glGetString(GL_VERSION));
 
-    /* Apply the saved display mode through the single shared code path (needs a
-     * current GL context for the swap interval). */
     pc_settings_apply();
 
     if (g_pc_verbose) {
@@ -228,7 +245,6 @@ void pc_platform_init(void) {
 #endif
 
     SDL_GL_SetSwapInterval(g_pc_settings.vsync);
-
     pc_platform_update_window_size();
 
 #ifdef PC_ENHANCEMENTS
@@ -239,6 +255,8 @@ void pc_platform_init(void) {
 
     pc_gx_init();
     fprintf(stderr, "[PC] GX init OK\n");
+#endif /* !AC_USE_RAINFALL */
+
     pc_texture_pack_init();
     fprintf(stderr, "[PC] texture pack init OK\n");
 #ifdef PC_ENHANCEMENTS
@@ -251,7 +269,7 @@ void pc_platform_init(void) {
 
 extern void PADCleanup(void);
 
-static void pc_speedhack_toggle(void) {
+void pc_speedhack_toggle(void) {
     g_pc_fast_forward ^= 1;
 
     if (g_pc_verbose) {
@@ -266,6 +284,11 @@ void pc_platform_shutdown(void) {
     pc_texture_pack_shutdown();
     pc_gx_shutdown();
 
+#ifdef AC_USE_RAINFALL
+    pc_renderer_shutdown();
+    g_pc_window = NULL;
+    SDL_Quit();
+#else
     if (g_pc_gl_context) {
         SDL_GL_DeleteContext(g_pc_gl_context);
         g_pc_gl_context = NULL;
@@ -275,7 +298,10 @@ void pc_platform_shutdown(void) {
         g_pc_window = NULL;
     }
     SDL_Quit();
+#endif
 }
+
+#ifndef AC_USE_RAINFALL
 
 void pc_platform_update_window_size(void) {
     SDL_GetWindowSizeInPixels(g_pc_window, &g_pc_window_w, &g_pc_window_h);
@@ -391,6 +417,8 @@ int pc_platform_poll_events(void) {
 
     return 1;
 }
+
+#endif /* !AC_USE_RAINFALL */
 
 /* game's main() renamed to ac_entry via -Dmain=ac_entry, boot.c's to boot_main */
 extern void ac_entry(void);

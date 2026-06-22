@@ -27,6 +27,10 @@ void* pc_renderer_get_window(void);
 
 void pc_renderer_set_vsync(int enabled);
 
+void pc_gx_init(void);
+void pc_gx_shutdown(void);
+void GX_FlushVertices_resetFrame(void);
+
 void pcGXGetClearColor(float* r, float* g, float* b, float* a);
 
 #ifdef __cplusplus

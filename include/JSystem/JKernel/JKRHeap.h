@@ -318,8 +318,9 @@ void JKRDefaultMemoryErrorRoutine(void*, u32, int);
 void* operator new(size_t);
 void* operator new(size_t, s32);
 void* operator new(size_t, JKRHeap*, int);
-#ifndef TARGET_PC
+#if !defined(TARGET_PC) || (UINTPTR_MAX > 0xFFFFFFFFu)
 inline void* operator new(size_t sz, void* buf) {
+    (void)sz;
     return buf;
 } // i believe this is actually part of MSL_C?
 #endif

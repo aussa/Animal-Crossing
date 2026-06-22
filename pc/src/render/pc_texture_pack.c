@@ -5,7 +5,7 @@
  * index scan for TLUT hash (only used entries, in BE byte order).
  * DDS: BC7, BC1/DXT1, BC3/DXT5, or uncompressed RGBA. */
 #include "pc_texture_pack.h"
-#include "pc_gx_internal.h"
+#include "pc_platform.h"
 #include "pc_settings.h"
 #include "pc_bc7.h"
 #include <stdio.h>

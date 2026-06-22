@@ -10,7 +10,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 # Options
 option(PC_CONSOLE "Show console window (disables -mwindows, useful for debugging)" OFF)
-option(AC_USE_RAINFALL "" OFF)
+option(AC_USE_RAINFALL "Use Rainfall renderer instead of legacy pc_gx" OFF)
 
 # Game version: 0=USA (GAFE01_00), 1=AUS (GAFU01_00), 2=JPN (GAFJ01_00)
 set(AC_VERSION 0 CACHE STRING "Animal Crossing version (0=USA, 1=AUS, 2=JPN)")
@@ -28,6 +28,7 @@ set(DECOMP_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/..")
 # =============================================================================
 include(cmake/dependencies.cmake)
 if(AC_USE_RAINFALL)
+    include(cmake/rainfall.cmake)
 endif()
 include(cmake/compile_defs.cmake)
 include(cmake/dolphin.cmake)
@@ -69,6 +70,14 @@ target_include_directories(ac_pc PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/external/fixnes
 )
 
+if(AC_USE_RAINFALL)
+    target_include_directories(ac_pc PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/pc_gx
+        ${RAINFALL_SOURCE_DIR}/include
+    )
+    target_link_libraries(ac_pc PRIVATE rainfall)
+endif()
+
 target_link_libraries(ac_pc PRIVATE glad SDL3::SDL3)
 
 if(WIN32)
@@ -81,12 +90,22 @@ else()
     target_link_libraries(ac_pc PRIVATE OpenGL::GL dl pthread m)
 endif()
 
+if(AC_USE_RAINFALL)
+    set(AC_FORCE_INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/include/rainfall/platform/pc.h")
+    set_source_files_properties(
+        ${GAME_C_SOURCES} ${GAME_CXX_SOURCES}
+        PROPERTIES
+            COMPILE_OPTIONS "$<$<CXX_COMPILER_ID:MSVC>:/FI${AC_FORCE_INCLUDE}>;$<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-include;${AC_FORCE_INCLUDE}>"
+    )
+endif()
+
 set_target_properties(ac_pc PROPERTIES
     OUTPUT_NAME "AnimalCrossing"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
 )
 
-# Copy shader files to output directory (loaded at runtime, with embedded fallback)
+# Copy legacy pc_gx shader files
+if(NOT AC_USE_RAINFALL)
 add_custom_command(TARGET ac_pc POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/shaders"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -95,6 +114,7 @@ add_custom_command(TARGET ac_pc POST_BUILD
         "${CMAKE_BINARY_DIR}/shaders/"
     COMMENT "Copying shader files to shaders/"
 )
+endif()
 
 # Static link MinGW runtime
 # Strip version.o from winpthread to prevent its version resource from overriding app.rc

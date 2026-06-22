@@ -1,5 +1,6 @@
 #include "render/pc_renderer.h"
 #include "pc_settings.h"
+#include "pc_platform.h"
 
 #include "pc_gx/gx_texture.h"
 #include "pc_gx/gx_rainfall_host.h"
@@ -50,6 +51,7 @@ extern "C" int pc_renderer_init(int windowW, int windowH, const char* title, flo
     rfRendererSetVSync(g_pc_settings.vsync ? true : false);
     rfSetGPUFrameData(rfRendererGetFrameData());
     (void)GXInit(nullptr, 0);
+    rfRendererSetGameAspectRatio((float)PC_GC_WIDTH / (float)PC_GC_HEIGHT);
     return 1;
 }
 
