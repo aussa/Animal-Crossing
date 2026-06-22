@@ -32,7 +32,7 @@
 #undef BUTTON_RIGHT
 
 /* Now include GL via SDL2 (avoid pc_platform.h which pulls in game types.h) */
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 #include <glad/gl.h>
 #include "fm2play.h"
 #include "audio.h"

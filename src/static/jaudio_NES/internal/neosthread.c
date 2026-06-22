@@ -15,7 +15,7 @@
 #include "jaudio_NES/sample.h"
 
 #define NEOSTHREAD_IMAGE_LOADED_MSG (0x12345678)
-#define NEOSTHREAD_ACMD_BUF_NUM 1600
+#define NEOSTHREAD_ACMD_BUF_NUM 16384
 
 #ifdef TARGET_PC
 /*==========================================================================
@@ -26,6 +26,10 @@ static BOOL neos_ready = FALSE;
 static Acmd pc_task_buf[2][NEOSTHREAD_ACMD_BUF_NUM];
 static u32 pc_tasks[2] = { 0, 0 };
 static u32 pc_neos_cur = 0;
+
+#ifdef TARGET_PC
+#include <string.h>
+#endif
 
 extern u32 Neos_Update(s16* dst) {
     if (!neos_ready) return FALSE;
@@ -38,9 +42,17 @@ extern u32 Neos_Update(s16* dst) {
     if (pc_tasks[prev]) {
         RspStart2(pc_task_buf[prev], pc_tasks[prev], 0);
         pc_tasks[prev] = 0;
+#ifdef TARGET_PC
+        memcpy(dst, tmp_buf, 2240);
+#else
         Jac_bcopy(tmp_buf, dst, DAC_SIZE * 2);
+#endif
     } else {
+#ifdef TARGET_PC
+        memset(dst, 0, 2240);
+#else
         Jac_bzero(dst, DAC_SIZE * 2);
+#endif
     }
 
     /* Diagnostic: check NEOS output amplitude every 60 frames */
@@ -48,7 +60,11 @@ extern u32 Neos_Update(s16* dst) {
         static u32 neos_diag_ctr = 0;
         if ((neos_diag_ctr++ % 60) == 0) {
             s32 peak = 0;
+#ifdef TARGET_PC
+            for (u32 i = 0; i < 1120; i++) {
+#else
             for (u32 i = 0; i < DAC_SIZE; i++) {
+#endif
                 s32 v = dst[i];
                 if (v < 0) v = -v;
                 if (v > peak) peak = v;
@@ -85,7 +101,7 @@ void pc_neos_init_sync(void) {
     /* Process the DVD task synchronously */
     pc_dvd_process_all_tasks();
 
-    tmp_buf = (s16*)OSAlloc2(DAC_SIZE * 2);
+    tmp_buf = (s16*)OSAlloc2(65536);
 
     /* Initialize NEOS audio */
     s32 buf_size = AGC.acmdBufSize;

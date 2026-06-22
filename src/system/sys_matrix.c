@@ -4,6 +4,7 @@
 #include "graph.h"
 #include "libc64/math64.h"
 #include "MSL_C/w_math.h"
+#include "libultra/gu.h"
 #include "libforest/gbi_extensions.h"
 
 // clang-format off

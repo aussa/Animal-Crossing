@@ -124,20 +124,14 @@ list(FILTER GAME_CXX_SOURCES EXCLUDE REGEX ".*/emu64_print\\.cpp$")
 # so exclude them from standalone compilation (just like emu64_utility.c)
 list(FILTER GAME_CXX_SOURCES EXCLUDE REGEX ".*/jsyswrapper_ext\\.cpp$")
 list(FILTER GAME_CXX_SOURCES EXCLUDE REGEX ".*/jsyswrapper_main\\.cpp$")
-
-# Exclude emu64_utility.c (it's #included from emu64.c, not a standalone file)
 list(FILTER GAME_C_SOURCES EXCLUDE REGEX ".*/emu64_utility\\.c$")
 
-# These .c files contain C++ code (classes, namespaces, ::) - compile as C++
-# Only files that truly need C++ (std::, extern "C", etc.) - NOT just for nullptr
 set_source_files_properties(
-    "${DECOMP_ROOT}/src/static/libforest/emu64/emu64.c"
-    # ja_calc.c uses std::sinf, std::sqrtf
     "${DECOMP_ROOT}/src/static/jaudio_NES/internal/ja_calc.c"
-    # jammain_2.c uses extern "C"
     "${DECOMP_ROOT}/src/static/jaudio_NES/internal/jammain_2.c"
-    # game64.c includes .c_inc with extern "C" (OSAttention.c_inc)
     "${DECOMP_ROOT}/src/static/jaudio_NES/game/game64.c"
+    "${DECOMP_ROOT}/src/static/libforest/emu64/emu64.c"
+    "${DECOMP_ROOT}/src/static/libforest/emu64/emu64_utility.c"
     PROPERTIES LANGUAGE CXX
 )
 

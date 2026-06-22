@@ -567,7 +567,7 @@ static void Debug_mode_output_sub(gfxprint_t* gfxprint) {
 }
 
 static void Debug_mode_zelda_malloc_info_output(gfxprint_t* gfxprint) {
-    u32 max, free, alloc;
+    size_t max, free, alloc;
     u32 graph_alloc;
 
     if (zelda_MallocIsInitalized()) {
@@ -576,9 +576,9 @@ static void Debug_mode_zelda_malloc_info_output(gfxprint_t* gfxprint) {
 
         gfxprint_color(gfxprint, 200, 200, 250, 255); /* color -> opaque lilac */
         gfxprint_locate8x8(gfxprint, 3, 23);
-        gfxprint_printf(gfxprint, "zelda_malloc ｻｲﾀﾞｲｱｷ%x", max);
+        gfxprint_printf(gfxprint, "zelda_malloc ｻｲﾀﾞｲｱｷ%x", (u32)max);
         gfxprint_locate8x8(gfxprint, 3, 24);
-        gfxprint_printf(gfxprint, "                  ｱｷ%x", free);
+        gfxprint_printf(gfxprint, "                  ｱｷ%x", (u32)free);
         gfxprint_locate8x8(gfxprint, 3, 25);
         gfxprint_printf(gfxprint, "graph_alloc ﾉｺﾘ     %x", graph_alloc);
     }

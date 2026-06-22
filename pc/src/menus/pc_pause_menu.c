@@ -78,10 +78,10 @@ static void confirm_activate(void) {
 
 int pc_pause_menu_handle_event(const SDL_Event* e) {
     if (!g_pc_paused) return 0;
-    if (e->type != SDL_KEYDOWN) return 0;
+    if (e->type != SDL_EVENT_KEY_DOWN) return 0;
     if (e->key.repeat) return 1;
 
-    SDL_Keycode k = e->key.keysym.sym;
+    SDL_Keycode k = e->key.key;
 
     /* Settings page is driven by pc_settings_menu. */
     if (cur_page == PAGE_SETTINGS) {

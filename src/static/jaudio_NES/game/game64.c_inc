@@ -334,11 +334,15 @@ const SOU_LEV_SE sou_lev_se_init = {
 };
 
 const SOU_LEV_ONGEN_DATA sou_lev_ongen_data_init = {
-    0,0,0,0,
-    0,
-    0,0,
-    9999.f,
-    9999.f
+    ._00 = 0,
+    ._01 = 0,
+    ._02 = 0,
+    ._03 = 0,
+    ._04 = 0,
+    ._08 = 0,
+    ._09 = 0,
+    .distance = 9999.f,
+    .distance2 = 9999.f,
 };
 
 const SOU_ONGEN_ENTRY sou_ongen_entry_init = {
@@ -1916,7 +1920,11 @@ void Na_InitAudio(void (*fatal_callback)(), u8* load_addr, size_t load_size, u8*
     u32 unused = SetPreCopy_NeosRom(load_addr, load_size, cut_flag);
     Jac_RegisterDVDErrorCallback(Sou_DVD_Error);
     Jac_Start(audiomemory, sizeof(audiomemory), v);
-    BootSound((u32)bootsound, bootsound_size);
+#ifdef TARGET_PC
+    BootSound((uintptr_t)bootsound, (u32)bootsound_size);
+#else
+    BootSound((u32)bootsound, (u32)bootsound_size);
+#endif
     sou_NeosBootCheck_ok = 1;
 }
 

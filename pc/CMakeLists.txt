@@ -10,6 +10,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 # Options
 option(PC_CONSOLE "Show console window (disables -mwindows, useful for debugging)" OFF)
+option(AC_USE_RAINFALL "" OFF)
 
 # Game version: 0=USA (GAFE01_00), 1=AUS (GAFU01_00), 2=JPN (GAFJ01_00)
 set(AC_VERSION 0 CACHE STRING "Animal Crossing version (0=USA, 1=AUS, 2=JPN)")
@@ -26,6 +27,8 @@ set(DECOMP_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/..")
 # Subsystem Modules (More closely matching Courage-Reborn)
 # =============================================================================
 include(cmake/dependencies.cmake)
+if(AC_USE_RAINFALL)
+endif()
 include(cmake/compile_defs.cmake)
 include(cmake/dolphin.cmake)
 include(cmake/game.cmake)
@@ -64,25 +67,18 @@ target_include_directories(ac_pc PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/external/bc7decomp
     ${CMAKE_CURRENT_SOURCE_DIR}/external/glad/include
     ${CMAKE_CURRENT_SOURCE_DIR}/external/fixnes
-    ${SDL2_INCLUDE_DIRS}
 )
 
-# Link SDL2 without SDL2main (we define SDL_MAIN_HANDLED)
-if(TARGET SDL2::SDL2)
-    target_link_libraries(ac_pc glad SDL2::SDL2)
-else()
-    list(FILTER SDL2_LIBRARIES EXCLUDE REGEX "SDL2main")
-    target_link_libraries(ac_pc glad ${SDL2_LIBRARIES})
-endif()
+target_link_libraries(ac_pc PRIVATE glad SDL3::SDL3)
 
 if(WIN32)
-    target_link_libraries(ac_pc opengl32 winmm imm32 version setupapi)
+    target_link_libraries(ac_pc PRIVATE opengl32 winmm imm32 version setupapi)
 elseif(APPLE)
     find_package(OpenGL REQUIRED)
-    target_link_libraries(ac_pc OpenGL::GL "-framework Cocoa" "-framework IOKit" pthread m)
+    target_link_libraries(ac_pc PRIVATE OpenGL::GL "-framework Cocoa" "-framework IOKit" pthread m)
 else()
     find_package(OpenGL REQUIRED)
-    target_link_libraries(ac_pc OpenGL::GL dl pthread m)
+    target_link_libraries(ac_pc PRIVATE OpenGL::GL dl pthread m)
 endif()
 
 set_target_properties(ac_pc PROPERTIES
@@ -100,24 +96,7 @@ add_custom_command(TARGET ac_pc POST_BUILD
     COMMENT "Copying shader files to shaders/"
 )
 
-# Copy SDL2.dll next to executable so users don't need it on PATH
-if(WIN32)
-    find_file(SDL2_DLL_PATH SDL2.dll PATHS
-        "${SDL2_MSYS2_DIR}/bin"
-        "${SDL2_DOWNLOAD_DIR}/bin"
-        "${SDL2_LOCAL_DIR}/bin"
-        "$ENV{MINGW_PREFIX}/bin"
-    )
-    if(SDL2_DLL_PATH)
-        add_custom_command(TARGET ac_pc POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${SDL2_DLL_PATH}" "${CMAKE_BINARY_DIR}/"
-            COMMENT "Copying SDL2.dll to output directory/"
-        )
-    endif()
-endif()
-
-# Static link MinGW runtime (no libgcc_s_dw2-1.dll, libstdc++-6.dll, libwinpthread-1.dll)
+# Static link MinGW runtime
 # Strip version.o from winpthread to prevent its version resource from overriding app.rc
 if(MINGW)
     find_file(WINPTHREAD_LIB libwinpthread.a PATHS ${CMAKE_C_IMPLICIT_LINK_DIRECTORIES} /mingw32/lib NO_DEFAULT_PATH)

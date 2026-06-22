@@ -33,25 +33,27 @@ static SDL_JoystickID g_controller_id = -1;
 /* Open the game controller at joystick device index `idx`, unless we already
  * hold one (the first pad wins; extras are ignored). Records its instance id
  * so a later REMOVED event can be matched to it. */
-static void pad_open(int idx) {
+static void pad_open_id(SDL_JoystickID instance_id) {
     if (g_controller) return;
-    if (!SDL_IsGameController(idx)) return;
-    SDL_GameController* c = SDL_GameControllerOpen(idx);
+    if (!SDL_IsGamepad(instance_id)) return;
+    SDL_GameController* c = SDL_OpenGamepad(instance_id);
     if (!c) return;
     g_controller = c;
-    SDL_Joystick* js = SDL_GameControllerGetJoystick(c);
-    g_controller_id = js ? SDL_JoystickInstanceID(js) : -1;
+    g_controller_id = instance_id;
     if (g_pc_verbose) {
-        printf("[PAD] opened controller idx=%d instance=%d name=%s\n",
-               idx, (int)g_controller_id, SDL_GameControllerName(c));
+        printf("[PAD] opened controller instance=%d name=%s\n",
+               (int)g_controller_id, SDL_GameControllerName(c));
     }
 }
 
-/* Scan every joystick and open the first game controller found. */
 static void pad_open_first(void) {
-    int n = SDL_NumJoysticks();
-    for (int i = 0; i < n && !g_controller; i++) {
-        pad_open(i);
+    int count = 0;
+    SDL_JoystickID* ids = SDL_GetGamepads(&count);
+    if (ids) {
+        for (int i = 0; i < count && !g_controller; i++) {
+            pad_open_id(ids[i]);
+        }
+        SDL_free(ids);
     }
 }
 
@@ -114,23 +116,18 @@ static BOOL apply_radial_deadzone(s16 x, s16 y, f32 dz_inner, f32 curve, s8* ox,
 }
 
 BOOL PADInit(void) {
-    /* Make sure SDL delivers controller hotplug events to our poll loop so
-     * pads that (re)appear after a system sleep/resume get picked up. */
-    SDL_GameControllerEventState(SDL_ENABLE);
+    SDL_SetGamepadEventsEnabled(true);
     pad_open_first();
     return TRUE;
 }
 
-/* SDL_CONTROLLERDEVICEADDED hook (event.cdevice.which is a device index).
- * Fires when a pad is plugged in or re-enumerates after a sleep/resume. */
-void pc_pad_device_added(int device_index) {
-    if (g_pc_verbose) printf("[PAD] event DEVICE_ADDED index=%d\n", device_index);
-    pad_open(device_index);
+/* SDL_EVENT_GAMEPAD_ADDED: `instance_id` is a joystick instance id. */
+void pc_pad_device_added(int instance_id) {
+    if (g_pc_verbose) printf("[PAD] event DEVICE_ADDED instance=%d\n", instance_id);
+    pad_open_id((SDL_JoystickID)instance_id);
 }
 
-/* SDL_CONTROLLERDEVICEREMOVED hook (event.cdevice.which is an instance id).
- * If our active pad went away, drop it and try to fall back to any other
- * controller still connected (e.g. dock vs handheld). */
+/* SDL_EVENT_GAMEPAD_REMOVED: `instance_id` is a joystick instance id. */
 void pc_pad_device_removed(int instance_id) {
     if (g_pc_verbose) {
         printf("[PAD] event DEVICE_REMOVED instance=%d (ours=%d)\n",
@@ -145,8 +142,11 @@ void pc_pad_device_removed(int instance_id) {
 u32 PADRead(PADStatus* status) {
     memset(status, 0, sizeof(PADStatus) * 4);
 
-    const u8* keys = SDL_GetKeyboardState(NULL);
-    u32 mouse = SDL_GetMouseState(NULL, NULL);
+    const bool* keys = SDL_GetKeyboardState(NULL);
+    float mouse_x, mouse_y;
+    SDL_MouseButtonFlags mouse = SDL_GetMouseState(&mouse_x, &mouse_y);
+    (void)mouse_x;
+    (void)mouse_y;
     u16 buttons = 0;
     s8 stickX = 0, stickY = 0;
     s8 cstickX = 0, cstickY = 0;
@@ -195,7 +195,7 @@ u32 PADRead(PADStatus* status) {
      * pc_pad_device_added/removed, but we re-check here every frame so a
      * dropped pad is recovered even if an ADDED event was missed on some
      * resume paths: detach a stale handle, then (re)acquire whatever's there. */
-    if (g_controller && !SDL_GameControllerGetAttached(g_controller)) {
+    if (g_controller && !SDL_GamepadConnected(g_controller)) {
         pad_close();
     }
     if (!g_controller) {

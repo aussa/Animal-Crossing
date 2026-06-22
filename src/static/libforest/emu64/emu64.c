@@ -341,15 +341,17 @@ static const OthermodeParameterInfo l_tbl[] = {
 #include "../src/static/libforest/emu64/emu64_print.cpp"
 
 /* Helper function to convert N64 texture format to Dolphin format */
+#define EMU64_FMT_NONE ((u16)0xFFFFu)
+
 __declspec(section ".rodata") const u16 emu64::fmtxtbl[8][4] = {
-    { GX_TF_CMPR, -1, GX_TF_RGB5A3, GX_TF_RGBA8 }, /* G_IM_FMT_RGBA */
-    { -1, -1, -1, -1 },                            /* G_IM_FMT_YUV */
-    { GX_TF_C4, GX_TF_C8, 0xA, -1 },               /* G_IM_FMT_CI */
-    { -1, GX_TF_IA4, GX_TF_IA8, -1 },              /* G_IM_FMT_IA */
-    { GX_TF_I4, GX_TF_I8, GX_TF_RGB565, -1 },      /* G_IM_FMT_I */
-    { GX_TF_CMPR, GX_CTF_A8, GX_TF_RGB5A3, -1 },   /* ?? */
-    { -1, GX_TF_Z8, GX_TF_Z16, GX_TF_Z24X8 },      /* ?? */
-    { -1, -1, -1, -1 }                             /* ?? */
+    { GX_TF_CMPR, EMU64_FMT_NONE, GX_TF_RGB5A3, GX_TF_RGBA8 }, /* G_IM_FMT_RGBA */
+    { EMU64_FMT_NONE, EMU64_FMT_NONE, EMU64_FMT_NONE, EMU64_FMT_NONE }, /* G_IM_FMT_YUV */
+    { GX_TF_C4, GX_TF_C8, 0xA, EMU64_FMT_NONE },               /* G_IM_FMT_CI */
+    { EMU64_FMT_NONE, GX_TF_IA4, GX_TF_IA8, EMU64_FMT_NONE },              /* G_IM_FMT_IA */
+    { GX_TF_I4, GX_TF_I8, GX_TF_RGB565, EMU64_FMT_NONE },      /* G_IM_FMT_I */
+    { GX_TF_CMPR, GX_CTF_A8, GX_TF_RGB5A3, EMU64_FMT_NONE },   /* ?? */
+    { EMU64_FMT_NONE, GX_TF_Z8, GX_TF_Z16, GX_TF_Z24X8 },      /* ?? */
+    { EMU64_FMT_NONE, EMU64_FMT_NONE, EMU64_FMT_NONE, EMU64_FMT_NONE } /* ?? */
 };
 
 static const u8 tbla[8][2] = {
@@ -3190,7 +3192,7 @@ void emu64::draw_rectangle(Gtexrect2* texrect) {
 
     /* Restore projection so subsequent polygon rendering uses the correct matrix */
     bcopy(saved_proj, this->projection_mtx, sizeof(Mtx44));
-    this->projection_type = saved_proj_type;
+    this->projection_type = (GXProjectionType)saved_proj_type;
     GXSetProjection(this->projection_mtx, (GXProjectionType)this->projection_type);
     this->dirty_flags[EMU64_DIRTY_FLAG_PROJECTION_MTX] = true;
 
@@ -3383,7 +3385,7 @@ void emu64::dirty_check(int tile, int n_tiles, int do_texture_matrix) {
             /* When G_SHADE is off, N64 ignores vertex colors (shade defaults to white).
              * Use GX_SRC_REG so the channel doesn't pull black vertex colors. */
             int mat_src = (this->geometry_mode & G_SHADE) ? GX_SRC_VTX : GX_SRC_REG;
-            GXSetChanCtrl(GX_COLOR0A0, GX_FALSE, GX_SRC_REG, mat_src, GX_LIGHT_NULL, GX_DF_NONE, GX_AF_NONE);
+            GXSetChanCtrl(GX_COLOR0A0, GX_FALSE, GX_SRC_REG, (GXColorSrc)mat_src, GX_LIGHT_NULL, GX_DF_NONE, GX_AF_NONE);
         }
 
         EMU64_TIMED_SEGMENT_END(dirty_light_time);
@@ -3427,7 +3429,7 @@ void emu64::dirty_check(int tile, int n_tiles, int do_texture_matrix) {
                     img_addr = tex_info_p->img_addr;
 
                     dol_fmt.raw = cvtN64ToDol(tex_info_p->format, tex_info_p->size);
-                    if (((u32)img_addr & 0x1F) != 0) {
+                    if (((uintptr_t)img_addr & 0x1F) != 0) {
 #ifndef TARGET_PC
                         /* Translation: Texture (%08x) alignment isn't 32 bytes */
                         this->Printf0("テクスチャ(%08x)のアライメントが３２バイトになっていません\n", img_addr);
@@ -3946,7 +3948,7 @@ void emu64::dl_G_LOADTLUT() {
 
                 this->tlut_addresses[tlut_name] = tlut_addr;
                 if (tlut_addr != nullptr) {
-                    if (((u32)tlut_addr & (0x1F)) != 0) {
+                    if (((uintptr_t)tlut_addr & (0x1F)) != 0) {
 #ifndef TARGET_PC
                         /* The alignment of the palette (%08x) is not 32 bytes. */
                         EMU64_PRINTF(

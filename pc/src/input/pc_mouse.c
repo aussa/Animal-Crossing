@@ -30,7 +30,9 @@ u32 pc_mouse_button_released(void) {
 
 void pc_mouse_lock(s32 lock) {
     g_mouse_locked = !!lock;
-    SDL_SetRelativeMouseMode(g_mouse_locked);
+    if (g_pc_window) {
+        SDL_SetWindowRelativeMouseMode(g_pc_window, g_mouse_locked);
+    }
 }
 
 int pc_mouse_is_locked(void) {
@@ -100,8 +102,10 @@ void pc_mouse_get_native_position(s32 *x, s32 *y) {
 void pc_mouse_update(void) {
     g_mouse_buttons_previous = g_mouse_buttons_current;
 
-    s32 mx, my;
-    u32 sdl_buttons = SDL_GetMouseState((int*)&mx, (int*)&my);
+    float mx_f, my_f;
+    SDL_MouseButtonFlags sdl_buttons = SDL_GetMouseState(&mx_f, &my_f);
+    s32 mx = (s32)mx_f;
+    s32 my = (s32)my_f;
     g_mouse_buttons_current = 0;
 
     /* Convert each SDL button to our bitflag system */
@@ -126,8 +130,10 @@ void pc_mouse_update(void) {
                                  (g_mouse_buttons_current & ~(PC_MOUSE_WHEEL_UP | PC_MOUSE_WHEEL_DOWN)) ||
                                  wheel_active);
     
-    s32 mdx = 0, mdy = 0;
-    SDL_GetRelativeMouseState((int*)&mdx, (int*)&mdy);
+    float mdx_f = 0.0f, mdy_f = 0.0f;
+    SDL_GetRelativeMouseState(&mdx_f, &mdy_f);
+    s32 mdx = (s32)mdx_f;
+    s32 mdy = (s32)mdy_f;
     
     if (g_mouse_locked) {
         g_mouse_dx = mdx;

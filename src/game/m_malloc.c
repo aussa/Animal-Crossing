@@ -19,7 +19,20 @@ extern void zelda_free(void* ptr) {
 }
 
 extern void zelda_GetFreeArena(size_t* max, size_t* free, size_t* alloc) {
-  __osGetFreeArena(&zelda_arena,max,free,alloc);
+  u32 max_u32;
+  u32 free_u32;
+  u32 alloc_u32;
+
+  __osGetFreeArena(&zelda_arena, &max_u32, &free_u32, &alloc_u32);
+  if (max) {
+    *max = max_u32;
+  }
+  if (free) {
+    *free = free_u32;
+  }
+  if (alloc) {
+    *alloc = alloc_u32;
+  }
 }
 
 extern size_t zelda_GetTotalFreeSize(void) {

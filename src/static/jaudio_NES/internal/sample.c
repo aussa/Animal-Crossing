@@ -90,13 +90,14 @@ extern void Jac_bzerofast(u32* dest, u32 size) {
 }
 
 extern void Jac_bzero(void* dest, s32 size) {
+#ifdef TARGET_PC
+    if (size > 0) {
+        memset(dest, 0, (size_t)size);
+    }
+#else
     u32* udest;
     u8* bdest = (u8*)dest;
-#ifdef TARGET_PC
-    u8 alignedbitsDst = CAST_PTR_U32(bdest) & 0x3;
-#else
     u8 alignedbitsDst = reinterpret_cast<u32>(bdest) & 0x3;
-#endif
     if (alignedbitsDst == 0) {
         if ((size & 0x1f) == 0) {
             DCZeroRange(dest, size);
@@ -132,4 +133,5 @@ extern void Jac_bzero(void* dest, s32 size) {
             *bdest++ = 0;
         }
     }
+#endif
 }

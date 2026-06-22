@@ -12,6 +12,7 @@ add_compile_definitions(
     PC_ENHANCEMENTS   # Optional visual improvements (MSAA, etc). Remove to get pure PC port.
     KEYBOARD_TYPING   # Physical keyboard typing in text editor. Remove for platforms without keyboards.
     MOUSE_INPUT       # Mouse input for menu and misc interfaces. Remove for platforms without mouse.
+    SDL_ENABLE_OLD_NAMES
 )
 
 if(APPLE)
@@ -36,6 +37,10 @@ endif()
 # -Wno-return-type: missing return values in non-void functions
 # -Wno-initializer-overrides: GBI macros use designated initializers with overlapping fields
 set(DECOMP_WARN_FLAGS "-w;-fpermissive;-Wno-return-type;-Wno-error=return-type")
+
+if(CMAKE_SIZEOF_VOID_P EQUAL 8 AND CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    list(APPEND DECOMP_WARN_FLAGS "-Wno-pointer-to-int-cast" "-Wno-int-to-pointer-cast")
+endif()
 
 if(CMAKE_C_COMPILER_ID MATCHES "Clang")
     list(APPEND DECOMP_WARN_FLAGS "-Wno-c99-designator" "-Wno-initializer-overrides")

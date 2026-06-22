@@ -1,8 +1,7 @@
 #ifndef PC_KEYBINDINGS_H
 #define PC_KEYBINDINGS_H
 
-#include <SDL2/SDL_scancode.h>
-#include <SDL2/SDL_mouse.h>
+#include <SDL3/SDL.h>
 
 #ifdef __cplusplus
 extern "C" {

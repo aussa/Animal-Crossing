@@ -1,11 +1,11 @@
-/* pc_platform.h - SDL2/OpenGL platform layer and global state */
+/* pc_platform.h - SDL3 platform layer + legacy GLAD/pc_gx rendering */
 #ifndef PC_PLATFORM_H
 #define PC_PLATFORM_H
 
 #include <stdint.h>
 
 #define SDL_MAIN_HANDLED
-#include <SDL.h>
+#include <SDL3/SDL.h>
 #include <glad/gl.h>
 
 #include <stdio.h>

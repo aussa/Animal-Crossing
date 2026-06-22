@@ -250,7 +250,7 @@ extern void Nap_SetS32(u32 cmd, s32 param) {
 
 #ifdef TARGET_PC
 extern void Nap_SetPtr(u32 cmd, void* ptr) {
-    AudioPort* port_p = &AG.audio_port_cmds[AG.thread_cmd_write_pos & 0xFF];
+    AudioPort* port_p = &AG.audio_port_cmds[AG.thread_cmd_write_pos & AUDIO_PORT_CMD_MASK];
 
     port_p->raw_cmd = cmd;
     port_p->param.asVoidPtr = ptr;

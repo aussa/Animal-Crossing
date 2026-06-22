@@ -1,4 +1,4 @@
-/* pc_main.c - PC entry point: SDL2/GL init, crash protection, boot sequence */
+/* pc_main.c - PC entry point: SDL3 + legacy GL/pc_gx init, crash protection, boot */
 #ifndef _WIN32
 #define _GNU_SOURCE  /* needed for dladdr */
 #include <unistd.h>  /* for chdir */
@@ -128,7 +128,7 @@ void pc_platform_init(void) {
      * focus. The default (minimize on focus loss) forces a slow video-mode
      * switch and a multi-second black screen on alt-tab. */
     SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0");
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO | SDL_INIT_TIMER) < 0) {
+    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD | SDL_INIT_AUDIO | SDL_INIT_EVENTS)) {
         fprintf(stderr, "[PC] SDL_Init failed: %s\n", SDL_GetError());
         exit(1);
     }
@@ -157,12 +157,14 @@ void pc_platform_init(void) {
          * and the in-game settings menu share ONE code path. We never use an
          * SDL fullscreen flag - it puts Windows into a fullscreen-optimized
          * state that black-screens for seconds on alt-tab. */
-        Uint32 flags = SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE;
+        Uint32 flags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
         g_pc_window = SDL_CreateWindow(
             PC_WINDOW_TITLE,
-            SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
             g_pc_settings.window_width, g_pc_settings.window_height, flags
         );
+        if (g_pc_window) {
+            SDL_SetWindowPosition(g_pc_window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+        }
     }
     if (!g_pc_window) {
         fprintf(stderr, "[PC] SDL_CreateWindow failed: %s\n", SDL_GetError());
@@ -276,7 +278,7 @@ void pc_platform_shutdown(void) {
 }
 
 void pc_platform_update_window_size(void) {
-    SDL_GL_GetDrawableSize(g_pc_window, &g_pc_window_w, &g_pc_window_h);
+    SDL_GetWindowSizeInPixels(g_pc_window, &g_pc_window_w, &g_pc_window_h);
     if (g_pc_window_w <= 0) g_pc_window_w = PC_SCREEN_WIDTH;
     if (g_pc_window_h <= 0) g_pc_window_h = PC_SCREEN_HEIGHT;
 }
@@ -325,53 +327,46 @@ int pc_platform_poll_events(void) {
 
     while (SDL_PollEvent(&event)) {
         switch (event.type) {
-            case SDL_QUIT:
+            case SDL_EVENT_QUIT:
                 g_pc_running = 0;
                 return 0;
-            case SDL_WINDOWEVENT:
-                switch (event.window.event) {
-                    case SDL_WINDOWEVENT_SIZE_CHANGED:
-                        pc_platform_update_window_size();
-                        break;
-                    case SDL_WINDOWEVENT_MINIMIZED:
-                        g_pc_minimized = 1;
-                        break;
-                    case SDL_WINDOWEVENT_RESTORED:
-                        g_pc_minimized = 0;
-                        break;
-                    case SDL_WINDOWEVENT_FOCUS_LOST:
-                        /* Drop vsync while unfocused so SwapWindow can't block
-                         * on an occluded surface. Restored on focus gain. */
-                        SDL_GL_SetSwapInterval(0);
-                        break;
-                    case SDL_WINDOWEVENT_FOCUS_GAINED:
-                        SDL_GL_SetSwapInterval(g_pc_settings.vsync);
-                        break;
-                }
+            case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
+            case SDL_EVENT_WINDOW_RESIZED:
+                pc_platform_update_window_size();
                 break;
-            case SDL_CONTROLLERDEVICEADDED:
-                /* Pad connected or re-enumerated after a sleep/resume. */
-                pc_pad_device_added(event.cdevice.which);
+            case SDL_EVENT_WINDOW_MINIMIZED:
+                g_pc_minimized = 1;
                 break;
-            case SDL_CONTROLLERDEVICEREMOVED:
-                /* Pad disconnected or dropped across a sleep/resume. */
-                pc_pad_device_removed(event.cdevice.which);
+            case SDL_EVENT_WINDOW_RESTORED:
+                g_pc_minimized = 0;
+                break;
+            case SDL_EVENT_WINDOW_FOCUS_LOST:
+                SDL_GL_SetSwapInterval(0);
+                break;
+            case SDL_EVENT_WINDOW_FOCUS_GAINED:
+                SDL_GL_SetSwapInterval(g_pc_settings.vsync);
+                break;
+            case SDL_EVENT_GAMEPAD_ADDED:
+                pc_pad_device_added((int)event.gdevice.which);
+                break;
+            case SDL_EVENT_GAMEPAD_REMOVED:
+                pc_pad_device_removed((int)event.gdevice.which);
                 break;
 #ifdef MOUSE_INPUT
-            case SDL_MOUSEWHEEL:
-                g_mouse_wheel_delta += event.wheel.y;
+            case SDL_EVENT_MOUSE_WHEEL:
+                g_mouse_wheel_delta += (s32)event.wheel.y;
                 break;
 #endif
-            case SDL_KEYDOWN:
-                if (event.key.keysym.sym == SDLK_F3 && !event.key.repeat) {
+            case SDL_EVENT_KEY_DOWN:
+                if (event.key.key == SDLK_F3 && !event.key.repeat) {
                     pc_speedhack_toggle();
                     break;
                 }
-                if (event.key.keysym.sym == SDLK_F4 && !event.key.repeat) {
+                if (event.key.key == SDLK_F4 && !event.key.repeat) {
                     g_pc_fast_forward ^= 1;
                     printf("[PC] Fast forward %s (2x)\n", g_pc_fast_forward ? "ON" : "OFF");
                 }
-                if (event.key.keysym.sym == SDLK_ESCAPE && !event.key.repeat) {
+                if (event.key.key == SDLK_ESCAPE && !event.key.repeat) {
                     if (g_pc_paused) {
                         pc_pause_menu_handle_event(&event);
                     } else {
@@ -381,11 +376,11 @@ int pc_platform_poll_events(void) {
                 }
                 if (g_pc_paused) {
                     pc_pause_menu_handle_event(&event);
-                    break; /* swallow all keys while paused */
+                    break;
                 }
                 pc_typing_handle_event(&event);
                 break;
-            case SDL_TEXTINPUT:
+            case SDL_EVENT_TEXT_INPUT:
                 if (g_pc_paused) break;
                 pc_typing_handle_event(&event);
                 break;
@@ -421,10 +416,10 @@ int main(int argc, char* argv[]) {
     /* Change working directory to the executable's directory so that assets/saves
      * can always be located relatively regardless of where the game is launched. */
     {
-        char* base = SDL_GetBasePath();
+        const char* base = SDL_GetBasePath();
         if (base) {
             chdir(base);
-            SDL_free(base);
+            SDL_free((void*)base);
         }
     }
 
@@ -593,8 +588,6 @@ int main(int argc, char* argv[]) {
     }
 #endif
 
-    fprintf(stderr, "[PC] init: SDL_SetMainReady\n");
-    SDL_SetMainReady();
     fprintf(stderr, "[PC] loading settings...\n");
     pc_settings_load();
     pc_keybindings_load();

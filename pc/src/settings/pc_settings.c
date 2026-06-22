@@ -235,9 +235,9 @@ static void ensure_presets(void) {
     add_preset(2560, 1440);
     add_preset(3840, 2160);
     /* Desktop native (inserted sorted, de-duped against the list above). */
-    SDL_DisplayMode mode;
-    if (SDL_GetDesktopDisplayMode(0, &mode) == 0) {
-        add_preset(mode.w, mode.h);
+    const SDL_DisplayMode* mode = SDL_GetDesktopDisplayMode(SDL_GetPrimaryDisplay());
+    if (mode) {
+        add_preset(mode->w, mode->h);
     }
 }
 
@@ -280,41 +280,24 @@ void pc_settings_apply(void) {
 
     switch (g_pc_settings.fullscreen) {
         case 1: {
-            /* "Fullscreen" = a borderless window covering the whole display.
-             * We deliberately avoid SDL fullscreen flags (exclusive AND
-             * desktop): both put Windows into a fullscreen-optimized /
-             * independent-flip state that black-screens for seconds on every
-             * alt-tab. A plain borderless window stays OS-composited and
-             * alt-tabs instantly, while still looking fullscreen. */
-            SDL_SetWindowFullscreen(g_pc_window, 0);
-            SDL_SetWindowBordered(g_pc_window, SDL_FALSE);
-            int di = SDL_GetWindowDisplayIndex(g_pc_window);
-            if (di < 0) di = 0;
+            SDL_SetWindowFullscreen(g_pc_window, false);
+            SDL_SetWindowBordered(g_pc_window, false);
+            SDL_DisplayID display = SDL_GetDisplayForWindow(g_pc_window);
+            if (display == 0) display = SDL_GetPrimaryDisplay();
             SDL_Rect b;
-            if (SDL_GetDisplayBounds(di, &b) == 0) {
-                /* Cover the display, but 1px TALLER than the monitor so the
-                 * window rect doesn't exactly match it. An exact match makes
-                 * Windows auto-promote the window to DirectFlip/MPO (direct
-                 * scanout), and toggling that on every alt-tab is the
-                 * multi-second black. The extra row sits off the bottom edge,
-                 * so it looks fullscreen but stays OS-composited. */
+            if (SDL_GetDisplayBounds(display, &b)) {
                 SDL_SetWindowPosition(g_pc_window, b.x, b.y);
                 SDL_SetWindowSize(g_pc_window, b.w, b.h + 1);
             }
             break;
         }
         case 2: {
-            /* Borderless window at the user's chosen size, centred. If that
-             * size would cover the whole display exactly, nudge it 1px taller
-             * and pin it to the display origin - an exact-cover borderless
-             * window gets promoted to DirectFlip/MPO and black-screens on
-             * alt-tab (same reason as the fullscreen case). */
-            SDL_SetWindowFullscreen(g_pc_window, 0);
-            SDL_SetWindowBordered(g_pc_window, SDL_FALSE);
-            int di = SDL_GetWindowDisplayIndex(g_pc_window);
-            if (di < 0) di = 0;
+            SDL_SetWindowFullscreen(g_pc_window, false);
+            SDL_SetWindowBordered(g_pc_window, false);
+            SDL_DisplayID display = SDL_GetDisplayForWindow(g_pc_window);
+            if (display == 0) display = SDL_GetPrimaryDisplay();
             SDL_Rect b;
-            if (SDL_GetDisplayBounds(di, &b) == 0 && w >= b.w && h >= b.h) {
+            if (SDL_GetDisplayBounds(display, &b) && w >= b.w && h >= b.h) {
                 SDL_SetWindowSize(g_pc_window, b.w, b.h + 1);
                 SDL_SetWindowPosition(g_pc_window, b.x, b.y);
             } else {
@@ -325,8 +308,8 @@ void pc_settings_apply(void) {
         }
         case 0:
         default: {
-            SDL_SetWindowFullscreen(g_pc_window, 0);
-            SDL_SetWindowBordered(g_pc_window, SDL_TRUE);
+            SDL_SetWindowFullscreen(g_pc_window, false);
+            SDL_SetWindowBordered(g_pc_window, true);
             SDL_SetWindowSize(g_pc_window, w, h);
             SDL_SetWindowPosition(g_pc_window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
             break;

@@ -7,7 +7,7 @@
 #include "main.h" /* SCREEN_WIDTH_F */
 
 int pc_menu_arrow_keys(void) {
-    const Uint8* k = SDL_GetKeyboardState(NULL);
+    const bool* k = SDL_GetKeyboardState(NULL);
     int m = 0;
     if (k[SDL_SCANCODE_UP])    m |= PC_MENU_KEY_UP;
     if (k[SDL_SCANCODE_DOWN])  m |= PC_MENU_KEY_DOWN;

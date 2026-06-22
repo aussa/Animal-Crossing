@@ -411,15 +411,9 @@ static u8* nextSrcData(u8* nowData) {
             break;
         }
         // Oopsies, forgot to call the function
-#ifndef FIXES
-        if (JKRDvdRipper::isErrorRetry == false) {
-            return nullptr;
-        }
-#else
         if (JKRDvdRipper::isErrorRetry() == false) {
             return nullptr;
         }
-#endif
 
         VIWaitForRetrace();
     }

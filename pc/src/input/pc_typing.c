@@ -97,19 +97,19 @@ int pc_utf8_to_game_code(const char* text) {
 }
 
 void pc_typing_handle_event(const SDL_Event* event) {
-    if (event->type == SDL_KEYDOWN) {
-        if (event->key.keysym.sym == SDLK_TAB && !event->key.repeat && g_pc_editor_active) {
+    if (event->type == SDL_EVENT_KEY_DOWN) {
+        if (event->key.key == SDLK_TAB && !event->key.repeat && g_pc_editor_active) {
             g_pc_typing_mode ^= 1;
             if (g_pc_typing_mode) {
-                SDL_StartTextInput();
+                SDL_StartTextInput(g_pc_window);
                 pc_typing_queue_clear();
             } else {
-                SDL_StopTextInput();
+                SDL_StopTextInput(g_pc_window);
             }
         }
 
         if (g_pc_typing_mode && g_pc_editor_active) {
-            switch (event->key.keysym.sym) {
+            switch (event->key.key) {
                 case SDLK_BACKSPACE: pc_typing_queue_push(PC_TYPING_CMD_BACKSPACE); break;
                 case SDLK_RETURN:
                 case SDLK_KP_ENTER:  pc_typing_queue_push(PC_TYPING_CMD_ENTER); break;
@@ -122,7 +122,7 @@ void pc_typing_handle_event(const SDL_Event* event) {
         }
     }
 
-    if (event->type == SDL_TEXTINPUT && g_pc_typing_mode && g_pc_editor_active) {
+    if (event->type == SDL_EVENT_TEXT_INPUT && g_pc_typing_mode && g_pc_editor_active) {
         const char* p = event->text.text;
         while (*p) {
             int code = pc_utf8_to_game_code(p);
@@ -140,7 +140,7 @@ void pc_typing_handle_event(const SDL_Event* event) {
 void pc_typing_update(void) {
     if (g_pc_typing_mode && !g_pc_editor_active) {
         g_pc_typing_mode = 0;
-        SDL_StopTextInput();
+        SDL_StopTextInput(g_pc_window);
         pc_typing_queue_clear();
     }
 }

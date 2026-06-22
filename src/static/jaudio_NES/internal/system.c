@@ -651,7 +651,7 @@ static void Nas_BankOfsToAddr_Inner_PC(s32 bank_id, u8* ctrl_p, WaveMedia* wave_
 }
 #endif /* TARGET_PC */
 
-static s32 Nas_GetSyncDummy(u8* param0, s32 param1);
+static void* Nas_GetSyncDummy(u8* param0, s32 param1);
 
 BOOL AUDIO_SYSTEM_READY = FALSE;
 static void* FASTDMA_BUFFER = NULL;
@@ -2044,8 +2044,10 @@ void Nas_BgDmaFrameWork(s32 reset_status) {
 // @unused Nas_SetDiskHandler__FPFv_l -> void Nas_SetRomHandler(void (*disk_handler)(s32));
 // @unused Nas_SetRomHandler__FPFv_l -> void Nas_SetSyncHandler__FPFv_PUc(void (*rom_handler)(u8*));
 
-static s32 Nas_GetSyncDummy(u8* param0, s32 param1) {
-    return 0;
+static void* Nas_GetSyncDummy(u8* param0, s32 param1) {
+    (void)param0;
+    (void)param1;
+    return NULL;
 }
 
 static void __SetVlute(s32 bank_id) {
@@ -2833,7 +2835,7 @@ s32 Nas_BankOfsToAddr(s32 bank_id, u8* ctrl_p, WaveMedia* wave_media, s32 async)
 s32 Nas_CheckBgWave(s32 reset_status) {
     smzwavetable* wavetable;
     Bgloadreq* preload;
-    u32 preload_idx;
+    uintptr_t preload_idx;
     s32 key;
     s32 n_chunks;
 
@@ -3103,7 +3105,7 @@ void MK_load(s32 table_type, s32 id, u8* done_p) {
 
 void MK_FrameWork(void) {
     s32 idx;
-    u32 ret;
+    uintptr_t ret;
     u8* rmes;
 
     if (Z_osRecvMesg(&MK_QUEUE, (OSMesg*)&ret, OS_MESG_NOBLOCK) != -1) {
