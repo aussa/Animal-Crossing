@@ -259,6 +259,9 @@ void pc_platform_init(void) {
 
     pc_texture_pack_init();
     fprintf(stderr, "[PC] texture pack init OK\n");
+#ifdef AC_USE_RAINFALL
+    pc_texture_pack_bind_rainfall();
+#endif
 #ifdef PC_ENHANCEMENTS
     if (g_pc_settings.preload_textures) {
         pc_texture_pack_preload_all();

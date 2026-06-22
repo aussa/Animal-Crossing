@@ -28,6 +28,9 @@ extern GXPaletteEntry g_palettes[GX_MAX_PALETTES];
 void pcTextureInvalidateRange(uintptr_t start, uintptr_t end);
 void pcGcAddrMapClearRange(uintptr_t start, uintptr_t end);
 
+const void* rfGXGetTlutSourcePtr(u32 id);
+GXBool rfGXGetTlutNativeEndian(u32 id);
+
 #ifdef __cplusplus
 }
 #endif

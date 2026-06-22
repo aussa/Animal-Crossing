@@ -4,3 +4,6 @@
 [submodule "pc/external/bc7decomp"]
 	path = pc/external/bc7decomp
 	url = https://github.com/richgel999/bc7enc.git
+[submodule "pc/external/rainfall"]
+	path = pc/external/rainfall
+	url = https://github.com/Linifadomra/rainfall.git

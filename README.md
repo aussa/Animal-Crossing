@@ -1,196 +1,124 @@
-# Animal Crossing PC Port
+<h1 align="center">Animal Crossing PC Port</h1>
+<p align="center">
+  <sub><b>A PC port of <em>Animal Crossing</em> (GameCube)</b></sub>
+</p>
 
-A native PC port of Animal Crossing (GameCube) built on top of the [ac-decomp](https://github.com/ACreTeam/ac-decomp) decompilation project.
+> [!IMPORTANT]
+> This project is made to test our Rainfall library, originally built for Courage-Reborn Twilight Princess Port on another game. If you want to contribute, please join our discord : https://discord.gg/3kPcPs9t5y
 
-The game's original C code runs natively on PC, with a custom translation layer replacing the GameCube's GX graphics API with OpenGL 3.3.
+> [!IMPORTANT]
+> This repository does **not** contain any game assets or assembly. A legally obtained copy of the original game is required.
 
-This repository does not contain any game assets or assembly whatsoever. An existing copy of the game is required.
+---
 
-Supported versions: GAFE01_00: Rev 0 (USA)
+## About
 
-## Quick Start (Pre-built Release)
+Animal Crossing PC Port is a native, cross-platform port of *Animal Crossing* (GameCube), built on top of the [Animal Crossing decompilation](https://github.com/ACreTeam/ac-decomp). The original game code runs unchanged with minor modifications.
 
-Pre-built releases are available on the [Releases](https://github.com/flyngmt/ACGC-PC-Port/releases) page. No build tools required.
+Input and audio use [SDL3](https://github.com/libsdl-org/SDL). Rendering uses a custom OpenGL backend by default, or [Rainfall](https://github.com/linifadomra/rainfall) when built with `-DAC_USE_RAINFALL=ON`.
 
-1. Download and extract the latest release zip
-2. Place your disc image in the `rom/` folder
+Supported disc version: **GAFE01_00** (USA, Rev 0).
+
+---
+
+## Installation
+
+Pre-built Windows builds are on the [Releases](https://github.com/flyngmt/ACGC-PC-Port/releases) page.
+
+1. Download and extract the latest zip
+2. Put your disc image in the `rom/` folder next to the executable
 3. Run `AnimalCrossing.exe`
 
-The game reads all assets directly from the disc image at startup. No extraction or preprocessing step is needed.
+The game loads assets from the disc image at startup. No extraction step is needed.
 
-## Building from Source
+---
 
-Only needed if you want to modify the code. Otherwise, use the [pre-built release](https://github.com/flyngmt/ACGC-PC-Port/releases) above.
+## Supported platforms
 
-### Requirements
+- **Windows** (32-bit and 64-bit)
+- **macOS** (Apple Silicon and Intel)
+- **Linux** (x86_64 and ARM64)
 
-- **Animal Crossing (USA) disc image** (ISO, GCM, or CISO format)
-- **CMake** 3.16+
-- **SDL2** development libraries
-- **GCC** (required on 64-bit platforms; Clang is supported on 32-bit only)
+A legally obtained GameCube ISO, GCM, or CISO of Animal Crossing (USA) is required at runtime.
 
-### Build Steps
+---
 
-### Windows 32-bit (MSYS2)
+## Building
 
-1. Install **MSYS2** (https://www.msys2.org/)
+Clone with submodules:
 
-2. Open **MSYS2 MINGW32** and install dependencies:
-   ```bash
-   pacman -S mingw-w64-i686-gcc mingw-w64-i686-cmake mingw-w64-i686-SDL2 mingw-w64-i686-make
-   ```
+```bash
+git clone --recurse-submodules https://github.com/flyngmt/ACGC-PC-Port.git
+cd ACGC-PC-Port/pc
+mkdir build && cd build
+cmake ..
+cmake --build . -j$(nproc)
+```
 
-3. Clone and build:
-   ```bash
-   git clone https://github.com/flyngmt/ACGC-PC-Port.git
-   cd ACGC-PC-Port
-   ./build_pc.sh
-   ```
+**Dependencies:** CMake 3.16+, SDL3, OpenGL. Clang or GCC both work on 64-bit.
 
-4. Place your disc image in `pc/build32/bin/rom/` and run:
-   ```bash
-   pc/build32/bin/AnimalCrossing.exe
-   ```
+**macOS example (64-bit, Rainfall renderer, Clang):**
 
-### Windows 64-bit (MSYS2)
+```bash
+brew install sdl3 cmake
+git submodule update --init pc/external/rainfall
+cd pc/build64
+cmake .. -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+         -DCMAKE_PREFIX_PATH=/opt/homebrew/opt/sdl3 -DAC_USE_RAINFALL=ON
+cmake --build . -j8
+```
 
-1. Install **MSYS2** (https://www.msys2.org/)
+GCC also works if you prefer it (`brew install gcc`, then `gcc-16` / `g++-16`).
 
-2. Open **MSYS2 MINGW64** and install dependencies:
-   ```bash
-   pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-SDL2 mingw-w64-x86_64-make
-   ```
+**Windows (MSYS2):** use the MINGW32 or MINGW64 shell, install `gcc`, `cmake`, and `SDL3`, then run `cmake ..` from `pc/build`.
 
-3. Clone and build:
-   ```bash
-   git clone https://github.com/flyngmt/ACGC-PC-Port.git
-   cd ACGC-PC-Port/pc
-   mkdir build64 && cd build64
-   cmake .. -G "MinGW Makefiles"
-   mingw32-make -j$(nproc)
-   ```
+Place your disc image in `rom/` next to the built executable. The port also checks `orig/` and the current directory.
 
-4. Place your disc image in `pc/build64/bin/rom/` and run:
-   ```bash
-   pc/build64/bin/AnimalCrossing.exe
-   ```
+**Launch options:**
+- `--verbose` - extra logging
+- `--no-framelimit` - unlock the frame limiter
+- `--model-viewer [index]` - debug model viewer
+- `--time HOUR` - override the in-game hour (0-23)
 
-### macOS (Apple Silicon & Intel)
+**CMake options:**
+- `-DAC_USE_RAINFALL=ON` - use the Rainfall GX backend instead of legacy `pc_gx`
+- `-DAC_VERSION=0` - game region (0=USA, 1=AUS, 2=JPN)
 
-1. Install dependencies:
-   ```bash
-   brew install gcc sdl2 cmake
-   ```
-
-2. Clone and build:
-   ```bash
-   git clone https://github.com/flyngmt/ACGC-PC-Port.git
-   cd ACGC-PC-Port/pc
-   mkdir build && cd build
-   cmake .. -DCMAKE_C_COMPILER=gcc-15 -DCMAKE_CXX_COMPILER=g++-15
-   make -j$(sysctl -n hw.ncpu)
-   ```
-   > Adjust `gcc-15`/`g++-15` to match your installed GCC version (`ls /opt/homebrew/bin/gcc-*`).
-
-3. Place your disc image in `build/bin/rom/` and run:
-   ```bash
-   build/bin/AnimalCrossing
-   ```
-
-### Linux (x86_64 / ARM64)
-
-1. Install dependencies:
-   ```bash
-   # Arch/CachyOS/Manjaro
-   sudo pacman -S gcc cmake sdl2
-
-   # Debian/Ubuntu
-   sudo apt install gcc g++ cmake libsdl2-dev
-
-   # Fedora
-   sudo dnf install gcc gcc-c++ cmake SDL2-devel
-   ```
-
-2. Clone and build:
-   ```bash
-   git clone https://github.com/flyngmt/ACGC-PC-Port.git
-   cd ACGC-PC-Port/pc
-   mkdir build && cd build
-   cmake ..
-   make -j$(nproc)
-   ```
-
-3. Place your disc image in `build/bin/rom/` and run:
-   ```bash
-   build/bin/AnimalCrossing
-   ```
-
-### Disc Image
-
-The game reads all assets directly from the disc image at startup. No extraction or preprocessing step is needed. Place your disc image (`.iso`, `.gcm`, or `.ciso`) in the `rom/` folder next to the executable — the file can be named anything. The game also checks the `orig/` folder and the current directory.
+---
 
 ## Controls
 
-Keyboard bindings are customizable via `keybindings.ini` (next to the executable). Mouse buttons (Mouse1/Mouse2/Mouse3) can also be assigned.
-
-### Keyboard (defaults)
+Keyboard defaults are in `keybindings.ini` next to the executable. SDL3 gamepads are supported with hotplug.
 
 | Key | Action |
 |-----|--------|
-| WASD | Move (left stick) |
-| Arrow Keys | Camera (C-stick) |
-| Space | A button |
-| Left Shift | B button |
+| WASD | Move |
+| Arrow keys | Camera |
+| Space | A |
+| Left Shift | B |
 | Enter | Start |
-| X | X button |
-| Y | Y button |
-| Q / E | L / R triggers |
+| X / Y | X / Y |
+| Q / E | L / R |
 | Z | Z trigger |
-| I / J / K / L | D-pad (up/left/down/right) |
+| I / J / K / L | D-pad |
 
-### Gamepad
+Graphics options live in `settings.ini` (resolution, fullscreen, vsync, MSAA). Dolphin-compatible HD textures go in `texture_pack/`.
 
-SDL2 game controllers are supported with automatic hotplug detection. Button mapping follows the standard GameCube layout.
+Save files use GCI format in the `save/` folder and work with Dolphin exports.
 
-## Command Line Options
-
-| Flag | Description |
-|------|-------------|
-| `--verbose` | Enable diagnostic logging |
-| `--no-framelimit` | Disable frame limiter (unlocked FPS) |
-| `--model-viewer [index]` | Launch debug model viewer (structures, NPCs, fish) |
-| `--time HOUR` | Override in-game hour (0-23) |
-
-## Settings
-
-Graphics settings are stored in `settings.ini` (next to the executable) and can be edited manually or through the in-game options menu:
-
-- Resolution (up to 4K)
-- Fullscreen toggle
-- VSync
-- MSAA (anti-aliasing)
-- Texture Loading/Caching (No need to enable if you aren't using a texture pack)
-
-## Texture Packs
-
-Custom textures can be placed in the `texture_pack/` folder next to the executable. Dolphin-compatible format (XXHash64, DDS).
-
-I highly recommend the following texture pack from the talented artists of Animal Crossing community.
-
-[HD Texture Pack](https://forums.dolphin-emu.org/Thread-animal-crossing-hd-texture-pack-version-23-feb-22nd-2026)
-
-## Save Data
-
-Save files are stored in the `save/` folder next to the executable, using the standard GCI format. Compatible with Dolphin emulator saves — place a Dolphin GCI export in the save directory to import an existing save.
+---
 
 ## Credits
 
-This project would not be possible without the work of the [ACreTeam](https://github.com/ACreTeam) decompilation team. Their complete C decompilation of Animal Crossing is the foundation this port is built on.
+- [ACreTeam/ac-decomp](https://github.com/ACreTeam/ac-decomp) - Animal Crossing decompilation
+- [Linifadomra/rainfall](https://github.com/linifadomra/rainfall) - GX renderer (optional backend)
+- [libsdl-org/SDL](https://github.com/libsdl-org/SDL) - Windowing, input, audio
+- [FIX94/fixNES](https://github.com/FIX94/fixNES) - NES emulator for the in-game console
 
-## AI Notice
+---
 
-AI tools such as Claude were used in this project (PC port code only).
+## License
 
-## FAQ
+The decompilation sources follow [CC0 1.0](https://github.com/ACreTeam/ac-decomp). The PC port layer (`pc/` and `TARGET_PC` changes) is [MIT](LICENSE).
 
-See [FAQ](FAQ.md) for more info.
+This project does not include any Nintendo intellectual property. You need a legally obtained copy of the original game disc image at runtime.

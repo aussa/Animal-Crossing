@@ -42,19 +42,13 @@ endif()
 # -Wno-initializer-overrides: GBI macros use designated initializers with overlapping fields
 set(DECOMP_WARN_FLAGS "-w;-fpermissive;-Wno-return-type;-Wno-error=return-type")
 
-if(CMAKE_SIZEOF_VOID_P EQUAL 8 AND CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+if(CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT MSVC)
     list(APPEND DECOMP_WARN_FLAGS "-Wno-pointer-to-int-cast" "-Wno-int-to-pointer-cast")
 endif()
 
 if(CMAKE_C_COMPILER_ID MATCHES "Clang")
-    list(APPEND DECOMP_WARN_FLAGS "-Wno-c99-designator" "-Wno-initializer-overrides")
-    if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-        message(FATAL_ERROR
-            "64-bit builds require GCC (Clang rejects pointer-to-u32 truncation in GBI static initializers).\n"
-            "  macOS:  brew install gcc && cmake .. -DCMAKE_C_COMPILER=gcc-15 -DCMAKE_CXX_COMPILER=g++-15\n"
-            "          (adjust version number to match installed GCC, e.g. gcc-14/g++-14)\n"
-            "  Linux:  GCC is typically the default compiler.")
-    endif()
+    add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:-Wno-register>)
+    list(APPEND DECOMP_WARN_FLAGS "-Wno-c99-designator" "-Wno-initializer-overrides" "-Wno-register")
 endif()
 
 # Applied in game.cmake after sources are collected

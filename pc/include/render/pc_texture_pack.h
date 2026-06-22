@@ -19,6 +19,8 @@ GLuint pc_texture_pack_lookup(const void* data, int data_size,
 
 int pc_texture_pack_active(void);
 
+void pc_texture_pack_bind_rainfall(void);
+
 #ifdef __cplusplus
 }
 #endif
